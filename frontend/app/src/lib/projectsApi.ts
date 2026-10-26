@@ -60,7 +60,6 @@ interface UploadCapability {
   storage_path: string
   upload_endpoint: string
   upload_token: string
-  api_key: string
 }
 
 interface ApiProfile {
@@ -331,7 +330,6 @@ export async function uploadProjectMedia(
     const upload = new Upload(file, {
       endpoint: capability.upload_endpoint,
       headers: {
-        apikey: capability.api_key,
         'x-signature': capability.upload_token,
       },
       fingerprint: () => Promise.resolve(

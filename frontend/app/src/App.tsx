@@ -2499,7 +2499,7 @@ function WorkspacePage({
         </div>
       </div>
       <div className="workspace-layout">
-        <form className="project-form" onSubmit={onSubmit}>
+        <form className="project-form workspace-form" onSubmit={onSubmit}>
           <label>Project title
             <input value={title} onChange={(event) => onTitleChange(event.target.value)} required maxLength={90} placeholder="e.g. A set of hand-thrown serving bowls" />
           </label>

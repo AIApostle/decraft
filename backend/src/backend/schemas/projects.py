@@ -199,4 +199,3 @@ class MediaSignResponse(BaseModel):
     storage_path: str
     upload_endpoint: str
     upload_token: str
-    api_key: str

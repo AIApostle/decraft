@@ -674,7 +674,6 @@ def sign_project_media_upload(
         storage_path=storage_path,
         upload_endpoint=create_tus_endpoint(request.app.state.settings.supabase_url),
         upload_token=upload_token,
-        api_key=client.supabase_key,
     )
 
 

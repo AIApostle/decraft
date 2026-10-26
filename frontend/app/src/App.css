@@ -1337,9 +1337,9 @@ button:hover .icon-arrow {
 
 .workspace-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
   align-items: start;
-  gap: clamp(1.5rem, 5vw, 4rem);
+  gap: clamp(1.5rem, 3.5vw, 3.25rem);
 }
 
 .workspace-page,
@@ -1356,6 +1356,11 @@ button:hover .icon-arrow {
 .project-form {
   min-width: 0;
   max-width: 100%;
+}
+
+.workspace-form {
+  width: 100%;
+  align-content: start;
 }
 
 .preview-mode-notice {
@@ -1541,8 +1546,12 @@ button:hover .icon-arrow {
 }
 
 .workspace-preview {
-  padding: 1.1rem;
+  align-self: start;
+  box-sizing: border-box;
+  border: 1px solid var(--rule);
+  padding: clamp(1rem, 2vw, 1.5rem);
   background: var(--paper);
+  overflow-wrap: anywhere;
 }
 
 .workspace-preview > img {
@@ -3618,7 +3627,7 @@ button:disabled {
 @media (max-width: 960px) {
   .workspace-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 1.5rem;
+    gap: 2rem;
   }
 
   .workspace-preview {
@@ -3627,6 +3636,31 @@ button:disabled {
 }
 
 @media (max-width: 700px) {
+  .workspace-page {
+    padding-inline: 1rem;
+  }
+
+  .workspace-heading {
+    margin-bottom: 1.75rem;
+  }
+
+  .workspace-layout {
+    gap: 1.5rem;
+  }
+
+  .workspace-preview {
+    padding: 1rem;
+  }
+
+  .workspace-preview h2 {
+    font-size: 1.7rem;
+  }
+
+  .workspace-page .form-submit {
+    width: 100%;
+    justify-content: center;
+  }
+
   .project-world,
   .project-world-section,
   .project-update-timeline,

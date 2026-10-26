@@ -1,5 +1,6 @@
 .site-shell {
   overflow: clip;
+  padding-top: 4.6rem;
 }
 
 .skip-link {
@@ -18,17 +19,21 @@
 }
 
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 50%;
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   max-width: 1440px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 1.05rem clamp(1.25rem, 5.5vw, 5.5rem);
   border-bottom: 1px solid var(--rule);
   background: var(--ground);
+  transform: translateX(-50%);
 }
 
 .wordmark {
@@ -115,11 +120,6 @@
 
 .primary-navigation .nav-projects {
   font-weight: 600;
-}
-
-.primary-navigation .nav-projects.is-active {
-  background: var(--ink);
-  color: #fffdf7;
 }
 
 .account-menu {
@@ -441,6 +441,15 @@ button:hover .icon-arrow {
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.03em;
+}
+
+.maker-monogram img,
+.portrait-small img,
+.portrait-block img,
+.maker-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .folio-maker strong,
@@ -816,6 +825,7 @@ button:hover .icon-arrow {
   background: #e1e7d9;
   color: #253621;
   font-size: 0.86rem;
+  overflow-wrap: anywhere;
 }
 
 .page-section {
@@ -1063,6 +1073,7 @@ button:hover .icon-arrow {
 .portrait-block {
   display: grid;
   place-items: center;
+  overflow: hidden;
   width: clamp(5.5rem, 10vw, 8.5rem);
   aspect-ratio: 1;
   background: #dcd6c7;
@@ -1328,7 +1339,15 @@ button:hover .icon-arrow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.78fr);
   align-items: start;
-  gap: clamp(2.5rem, 8vw, 8rem);
+  gap: clamp(1.5rem, 5vw, 4rem);
+}
+
+.workspace-page,
+.maker-profile-page,
+.project-dashboard,
+.project-space-page {
+  max-width: 88rem;
+  margin-inline: auto;
 }
 
 .preview-mode-notice {
@@ -1358,6 +1377,18 @@ button:hover .icon-arrow {
 .project-form {
   display: grid;
   gap: 1.35rem;
+}
+
+.project-form-choice {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.project-form-choice > small {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 .stage-fieldset {
@@ -1647,6 +1678,10 @@ button:hover .icon-arrow {
 }
 
 @media (max-width: 860px) {
+  .site-shell {
+    padding-top: 4rem;
+  }
+
   .site-header {
     padding-block: 0.8rem;
   }
@@ -2291,7 +2326,9 @@ button:hover .icon-arrow {
 
 .owned-project-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  max-width: 64rem;
+  margin-inline: auto;
   gap: 1.5rem;
   padding-top: 2rem;
 }
@@ -2499,6 +2536,43 @@ button:hover .icon-arrow {
 
 .project-world-copy {
   align-self: center;
+  min-width: 0;
+}
+
+.project-overview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.project-overview-heading .section-label {
+  margin: 0;
+}
+
+.project-edit-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+}
+
+.project-edit-trigger svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.project-overview-form {
+  max-width: 42rem;
+}
+
+.project-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
 }
 
 .project-world-copy > p:not(.section-label) {
@@ -3017,15 +3091,61 @@ button:hover .icon-arrow {
   margin-block: 2.6rem;
 }
 
-.maker-profile-monogram {
+.maker-profile-avatar {
+  position: relative;
   display: grid;
   width: 5.5rem;
   aspect-ratio: 1;
   flex: 0 0 auto;
   place-items: center;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
   background: #dfe5d9;
   color: var(--moss-deep);
+  cursor: pointer;
   font: 500 2rem/1 var(--display);
+}
+
+.maker-profile-avatar > span:first-of-type {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.maker-profile-avatar-action {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0.3rem 0.15rem;
+  background: rgb(34 43 32 / 0.78);
+  color: #fffdf7;
+  font: 600 0.62rem/1.1 var(--sans);
+  text-align: center;
+}
+
+.maker-profile-avatar:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.maker-profile-avatar-hint {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .maker-profile-heading h1 {
@@ -3146,6 +3266,27 @@ button:hover .icon-arrow {
 }
 
 @media (max-width: 760px) {
+  .site-shell {
+    padding-top: 3.6rem;
+  }
+
+  .workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .workspace-preview {
+    order: 1;
+  }
+
+  .project-form input,
+  .project-form textarea,
+  .project-form select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
   .preview-mode-notice {
     grid-template-columns: 1fr;
     gap: 0.2rem;
@@ -3299,7 +3440,7 @@ button:hover .icon-arrow {
     margin-block: 1.8rem;
   }
 
-  .maker-profile-monogram {
+  .maker-profile-avatar {
     width: 3.8rem;
   }
 
@@ -3422,14 +3563,6 @@ button:disabled {
   color: var(--moss-deep);
   font-size: 0.72rem;
   font-weight: 600;
-}
-
-.project-settings-section .project-form {
-  max-width: 46rem;
-}
-
-.project-settings-section .project-form > button {
-  justify-self: start;
 }
 
 .maker-contact-note {

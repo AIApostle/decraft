@@ -21,7 +21,7 @@ The Python SDK is used for runtime Auth and PostgREST interactions. Database tab
 1. Copy `.env.example` to `.env`.
 2. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the Supabase project. Backend settings load `backend/.env` using its absolute project path, independent of the directory used to launch the service; environment variables set by the host take precedence.
 3. Keep Supabase Auth's `mailer_autoconfirm` option set to `true` while developing. This turns email verification off, avoids confirmation email rate limits, and lets signup return a session.
-4. Apply the ordered migrations in `supabase/migrations/` with the Supabase CLI (`supabase db push`). They create profiles, project/media and discovery tables, RLS policies, the private `project-media` bucket, and public share slugs.
+4. Apply the ordered migrations in `supabase/migrations/` with the Supabase CLI (`supabase db push`). They create profiles, project/media and discovery tables, RLS policies, the private `project-media` and `profile-avatars` buckets, and public share slugs.
 5. For local development, use `AUTH_COOKIE_SECURE=false` and `AUTH_COOKIE_SAMESITE=lax`. For production on Vercel and Render, configure the Render environment with `FRONTEND_ORIGINS=https://decraft.vercel.app`, `AUTH_COOKIE_SECURE=true`, and `AUTH_COOKIE_SAMESITE=none`. The frontend production build defaults to `https://decraft.onrender.com`; set `VITE_API_BASE_URL` in Vercel only if the API is hosted elsewhere. The production domains are cross-site, so credentialed CORS and secure `SameSite=None` cookies are required.
 
 `FRONTEND_ORIGINS` is an exact comma-separated origin allowlist (scheme, host, and optional port). CORS handles browser preflights and response headers; origin middleware rejects requests and preflights that supply an unapproved `Origin`. Requests without an `Origin` remain available for health checks and non-browser clients, so this is not a replacement for authentication or authorization.
@@ -40,6 +40,8 @@ uv run backend
 The API listens on `http://127.0.0.1:8000`; `/health` is a public health check. To run through Uvicorn directly, use `uv run uvicorn main:app --host 127.0.0.1 --port 8000` from this directory. The frontend Vite server proxies `/api` to this service by default. Set `VITE_API_PROXY_TARGET` in `frontend/app/.env.local` if the local API listens elsewhere. The Vercel SPA rewrite supports direct profile and project share URLs. Before relying on production, apply all migrations in `supabase/migrations/` to the intended Supabase project and verify the Render health endpoint and storage configuration.
 
 Public share routes are `/@{profile-username}` and `/@{profile-username}/{project-slug}`. Public lookups return only public profiles and published public projects.
+
+Profile photos are limited to JPEG or PNG files up to 5 MiB. The authenticated API stores them in the private `profile-avatars` bucket and returns short-lived signed URLs; the service-role key is only used by the backend. Apply the avatar storage migration before enabling uploads in a deployed environment.
 
 ## Auth endpoints
 

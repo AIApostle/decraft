@@ -53,6 +53,10 @@ from backend.services.project_media import (
     create_tus_endpoint,
     verify_uploaded_object,
 )
+from backend.services.profile_avatar import (
+    ProfileAvatarError,
+    create_profile_avatar_url,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
@@ -241,6 +245,7 @@ def read_public_profile(
             primary_craft=profile.get("primary_craft"),
             city=profile.get("city"),
             bio=profile.get("bio"),
+            avatar_url=create_profile_avatar_url(settings, profile.get("avatar_path")),
             projects=projects,
         )
     except HTTPException:
@@ -251,6 +256,7 @@ def read_public_profile(
         StorageApiError,
         MediaSigningError,
         MediaStorageConfigurationError,
+        ProfileAvatarError,
     ):
         logger.exception("Public profile lookup failed")
         raise HTTPException(

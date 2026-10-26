@@ -55,6 +55,7 @@ export interface Maker {
   location: string
   bio: string
   initials: string
+  avatarUrl?: string
 }
 
 export const SAMPLE_MAKERS: Maker[] = [

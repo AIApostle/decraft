@@ -82,6 +82,7 @@ class ProfileResponse(BaseModel):
     city: str | None = None
     bio: str | None = None
     is_public: bool
+    avatar_url: str | None = None
 
 
 class MediaAssetResponse(BaseModel):
@@ -139,6 +140,7 @@ class PublicProfileResponse(BaseModel):
     primary_craft: str | None = None
     city: str | None = None
     bio: str | None = None
+    avatar_url: str | None = None
     projects: list[ProjectResponse]
 
 

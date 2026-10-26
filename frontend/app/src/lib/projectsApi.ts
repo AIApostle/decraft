@@ -1,4 +1,4 @@
-import { Upload } from 'tus-js-client'
+import { DetailedError, Upload } from 'tus-js-client'
 import type { Maker, Project, ProjectMedia, ProjectStage, ProjectUpdate } from '../data/sampleData'
 import { apiRequest, ApiError } from './authApi'
 
@@ -64,6 +64,7 @@ interface UploadCapability {
 interface ApiProfile {
   id: string
   slug: string
+  avatar_url: string | null
   display_name: string
   profile_type: 'individual' | 'workshop' | 'business'
   primary_craft: string | null
@@ -158,6 +159,7 @@ export async function getPublicProfile(profileSlug: string): Promise<PublicMaker
     primary_craft: string | null
     city: string | null
     bio: string | null
+    avatar_url: string | null
     projects: ApiProject[]
   }>(`/api/v1/projects/share/${encodeURIComponent(profileSlug)}`)
   const name = response.display_name
@@ -170,6 +172,7 @@ export async function getPublicProfile(profileSlug: string): Promise<PublicMaker
       location: response.city ?? '',
       bio: response.bio ?? '',
       initials: name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toLocaleUpperCase(),
+      avatarUrl: response.avatar_url ?? undefined,
     },
     projects: response.projects.map(mapProject),
   }
@@ -241,6 +244,31 @@ export async function createProjectUpdate(
   }))
 }
 
+function describeUploadError(fileName: string, error: Error): ApiError {
+  if (error instanceof DetailedError) {
+    const status = error.originalResponse?.getStatus()
+    const responseBody = error.originalResponse?.getBody().trim()
+    let serverMessage = ''
+
+    if (responseBody && responseBody.length <= 300) {
+      try {
+        const response = JSON.parse(responseBody) as { message?: unknown; error?: unknown }
+        const message = response.message ?? response.error
+        if (typeof message === 'string') serverMessage = message
+      } catch {
+        if (!responseBody.startsWith('<')) serverMessage = responseBody
+      }
+    }
+
+    const cause = error.causingError?.message
+    const detail = serverMessage || cause || 'Check your connection and try again.'
+    const statusText = status ? ` (${status})` : ''
+    return new ApiError(`We couldn't upload ${fileName}${statusText}. ${detail}`, status ?? 0)
+  }
+
+  return new ApiError(`We couldn't upload ${fileName}. Check your connection and try again.`, 0)
+}
+
 export async function uploadProjectMedia(
   projectId: string,
   media: ProjectMedia,
@@ -276,6 +304,9 @@ export async function uploadProjectMedia(
         apikey: capability.api_key,
         'x-signature': capability.upload_token,
       },
+      fingerprint: () => Promise.resolve(
+        `${capability.media_asset_id}-${file.name}-${file.size}-${file.lastModified}`,
+      ),
       metadata: {
         bucketName: capability.bucket_id,
         objectName: capability.storage_path,
@@ -289,8 +320,8 @@ export async function uploadProjectMedia(
       onProgress(bytesUploaded, bytesTotal) {
         options.onProgress(bytesTotal ? Math.round((bytesUploaded / bytesTotal) * 100) : 0)
       },
-      onError() {
-        reject(new ApiError(`We couldn't upload ${file.name}. Check your connection and try again.`, 0))
+      onError(error) {
+        reject(describeUploadError(file.name, error))
       },
       onSuccess() {
         resolve()
@@ -321,6 +352,15 @@ export async function removeProjectMedia(projectId: string, mediaAssetId: string
 
 export function getProfileSettings(): Promise<ApiProfile> {
   return apiRequest<ApiProfile>('/api/v1/profile')
+}
+
+export async function uploadProfileAvatar(file: File): Promise<ApiProfile> {
+  const formData = new FormData()
+  formData.set('file', file)
+  return apiRequest<ApiProfile>('/api/v1/profile/avatar', {
+    method: 'POST',
+    body: formData,
+  })
 }
 
 export function updateProfileSettings(

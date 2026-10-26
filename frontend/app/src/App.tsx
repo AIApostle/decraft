@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FolderSimple, GearSix, House, LockKey, Plus, SignOut, UserCircle } from '@phosphor-icons/react'
+import { FolderSimple, GearSix, House, LockKey, PencilSimple, Plus, SignOut, UserCircle } from '@phosphor-icons/react'
 import { SAMPLE_MAKERS, SAMPLE_PROJECTS, type Maker, type Project, type ProjectMedia, type ProjectStage, type ProjectUpdate } from './data/sampleData'
 import { ApiError, getCurrentUser, logIn, logOut, signUp, type AuthUser } from './lib/authApi'
 import {
@@ -16,6 +16,7 @@ import {
   removeProjectMedia,
   updateProfileSettings,
   updateProject,
+  uploadProfileAvatar,
   uploadProjectMedia,
   type PublicMakerProfile,
 } from './lib/projectsApi'
@@ -42,6 +43,79 @@ type View =
 type AuthStatus = 'loading' | 'signed-out' | 'signed-in' | 'error'
 
 const currentMaker = SAMPLE_MAKERS[0]
+const craftOptions = [
+  'Ceramics',
+  'Furniture',
+  'Woodwork',
+  'Textiles',
+  'Jewellery',
+  'Metalwork',
+  'Leatherwork',
+  'Painting',
+  'Photography',
+  'Repairs',
+]
+const locationOptions = [
+  'Lagos',
+  'Abuja',
+  'Ibadan',
+  'Port Harcourt',
+  'Kano',
+  'Enugu',
+  'Benin City',
+  'Kaduna',
+  'Lekki',
+  'Yaba',
+]
+
+function SuggestedChoiceField({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder,
+  required = false,
+  maxLength,
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (value: string) => void
+  placeholder: string
+  required?: boolean
+  maxLength: number
+}) {
+  const fieldId = useId()
+  const inputId = `${fieldId}-value`
+
+  return (
+    <div className="project-form-choice">
+      <label htmlFor={inputId}>{label}</label>
+      <select
+        aria-label={`${label} suggestions`}
+        value={options.includes(value) ? value : value ? 'other' : ''}
+        onChange={(event) => {
+          const nextValue = event.target.value
+          onChange(nextValue === 'other' ? '' : nextValue)
+        }}
+      >
+        <option value="">Choose a suggestion</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        <option value="other">Other — type your own below</option>
+      </select>
+      <input
+        id={inputId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        aria-describedby={`${fieldId}-help`}
+      />
+      <small id={`${fieldId}-help`}>Choose a suggestion or type a name of your own.</small>
+    </div>
+  )
+}
 
 function makerForProject(project: Project): Maker {
   const name = project.ownerName ?? 'Maker'
@@ -152,6 +226,7 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [discoveryProjects, setDiscoveryProjects] = useState<Project[]>([])
+  const [discoveryLoaded, setDiscoveryLoaded] = useState(false)
   const [publicRouteResult, setPublicRouteResult] = useState<{
     pathname: string
     profile?: PublicMakerProfile
@@ -182,6 +257,7 @@ function App() {
     location: '',
     bio: '',
     isPublic: false,
+    avatarUrl: '',
   })
   const mediaUrls = useRef<string[]>([])
   const authUserId = authUser?.id
@@ -242,7 +318,9 @@ function App() {
       })
     void listDiscoverProjects()
       .then((items) => {
-        if (active) setDiscoveryProjects(items)
+        if (!active) return
+        setDiscoveryProjects(items)
+        setDiscoveryLoaded(true)
       })
       .catch((error: unknown) => {
         if (active) setAnnouncement(error instanceof Error ? error.message : 'We could not load published projects.')
@@ -256,6 +334,7 @@ function App() {
           location: profile.city ?? '',
           bio: profile.bio ?? '',
           isPublic: profile.is_public,
+          avatarUrl: profile.avatar_url ?? '',
         })
       })
       .catch((error: unknown) => {
@@ -332,9 +411,9 @@ function App() {
 
   const projectIdFromPath = routeLocation.pathname.match(/^\/(?:project|app\/discovery\/projects|app\/projects)\/([^/]+)(?:\/review)?$/)?.[1]
   const makerIdFromPath = routeLocation.pathname.match(/^\/(?:portfolio|app\/makers)\/([^/]+)$/)?.[1]
-  const selectedProject = [...projects, ...discoveryProjects].find((project) => project.id === projectIdFromPath)
-    ?? [...projects, ...discoveryProjects].find((project) => project.id === selectedProjectId)
-  const visibleProjects = discoveryProjects
+  const visibleProjects = discoveryLoaded && discoveryProjects.length === 0 ? SAMPLE_PROJECTS : discoveryProjects
+  const selectedProject = [...projects, ...visibleProjects].find((project) => project.id === projectIdFromPath)
+    ?? [...projects, ...visibleProjects].find((project) => project.id === selectedProjectId)
   const selectedMakerIdValue = makerIdFromPath ?? selectedMakerId
   const selectedMakerProject = visibleProjects.find((project) => project.makerId === selectedMakerIdValue)
   const selectedMakerName = selectedMakerProject?.ownerName ?? 'Maker'
@@ -509,15 +588,15 @@ function App() {
             sortOrder: index,
             onProgress: () => undefined,
           })
-        } catch {
-          failedUploads.push(media.filename)
+        } catch (error) {
+          failedUploads.push(error instanceof Error ? error.message : `We couldn't upload ${media.filename}.`)
         }
       }
       const refreshedProject = await getProject(projectId)
       setProjects((current) => current.map((project) => project.id === refreshedProject.id ? refreshedProject : project))
       setDiscoveryProjects((current) => current.map((project) => project.id === refreshedProject.id ? refreshedProject : project))
       setAnnouncement(failedUploads.length
-        ? `Update saved, but these files could not be uploaded: ${failedUploads.join(', ')}.`
+        ? `Update saved, but some media could not be uploaded: ${failedUploads.join(' ')}`
         : 'Progress update saved to your project.')
     } catch (error) {
       setAnnouncement(error instanceof Error ? error.message : 'We could not save this progress update.')
@@ -525,7 +604,7 @@ function App() {
     }
   }
 
-  async function saveProfile(details: typeof profileDetails) {
+  async function saveProfile(details: Omit<typeof profileDetails, 'avatarUrl'>) {
     try {
       const profile = await updateProfileSettings({
         slug: details.slug.trim(),
@@ -540,10 +619,12 @@ function App() {
         location: profile.city ?? '',
         bio: profile.bio ?? '',
         isPublic: profile.is_public,
+        avatarUrl: profile.avatar_url ?? '',
       }
       setProfileDetails(savedDetails)
       try {
         setDiscoveryProjects(await listDiscoverProjects())
+        setDiscoveryLoaded(true)
       } catch (error) {
         setAnnouncement(`Profile saved, but Home could not refresh: ${error instanceof Error ? error.message : 'Try reloading Home.'}`)
         return
@@ -551,6 +632,18 @@ function App() {
       setAnnouncement('Profile saved to your account.')
     } catch (error) {
       setAnnouncement(error instanceof Error ? error.message : 'We could not save your profile.')
+      throw error
+    }
+  }
+
+  async function saveProfileAvatar(file: File): Promise<string | null> {
+    try {
+      const profile = await uploadProfileAvatar(file)
+      setProfileDetails((current) => ({ ...current, avatarUrl: profile.avatar_url ?? '' }))
+      setAnnouncement('Profile photo updated.')
+      return profile.avatar_url
+    } catch (error) {
+      setAnnouncement(error instanceof Error ? error.message : 'We could not upload your profile photo.')
       throw error
     }
   }
@@ -602,8 +695,9 @@ function App() {
       setAuthStatus('signed-out')
       setProjects([])
       setDiscoveryProjects([])
+      setDiscoveryLoaded(false)
       setLoadedProjectsUserId(null)
-      setProfileDetails({ slug: '', craft: '', location: '', bio: '', isPublic: false })
+      setProfileDetails({ slug: '', craft: '', location: '', bio: '', isPublic: false, avatarUrl: '' })
       setProfileLoading(true)
       routerNavigate('/')
     } catch (error) {
@@ -770,6 +864,7 @@ function App() {
               profileType={authUser.profile.profile_type}
               details={profileDetails}
               onSave={saveProfile}
+              onUploadAvatar={saveProfileAvatar}
               onNavigate={navigate}
               onCopyShare={(url) => void copyShareLink(url, 'Profile link')}
             />
@@ -1285,7 +1380,9 @@ function DiscoveryPage({
                   <h3><button type="button" onClick={() => onOpenProject(project)}>{project.title}</button></h3>
                   <p>{project.description}</p>
                   <button className="maker-link" type="button" onClick={() => onOpenPortfolio(maker.id)}>
-                    <span className="maker-monogram" aria-hidden="true">{maker.initials}</span>
+                    <span className="maker-monogram" aria-hidden="true">
+                      {maker.avatarUrl ? <img src={maker.avatarUrl} alt="" /> : maker.initials}
+                    </span>
                     <span>{maker.name}<small>{maker.craft}</small></span>
                     <ArrowIcon />
                   </button>
@@ -1319,7 +1416,9 @@ function PortfolioPage({ maker, projects, onOpenProject, onContactMaker, onBack,
     <section className="page-section portfolio-page">
       <button className="back-link" type="button" onClick={onBack}><ArrowIcon /> {backLabel}</button>
       <div className="portfolio-header">
-        <div className="portrait-block" aria-hidden="true">{maker.initials}</div>
+        <div className="portrait-block" aria-hidden="true">
+          {maker.avatarUrl ? <img src={maker.avatarUrl} alt="" /> : maker.initials}
+        </div>
         <div>
           <h1>{maker.name}</h1>
           <p className="portfolio-meta">{maker.craft} <span>·</span> {maker.location}</p>
@@ -1364,7 +1463,12 @@ function ProjectTile({ project, maker, onOpenProject }: ProjectTileProps) {
         <p className="tile-craft">{project.category} <span>·</span> {project.location}</p>
         <h3><button type="button" onClick={() => onOpenProject(project)}>{project.title}</button></h3>
         <p>{project.description}</p>
-        <span className="maker-link maker-link-static"><span className="maker-monogram" aria-hidden="true">{maker.initials}</span><span>{maker.name}<small>{maker.craft}</small></span></span>
+        <span className="maker-link maker-link-static">
+          <span className="maker-monogram" aria-hidden="true">
+            {maker.avatarUrl ? <img src={maker.avatarUrl} alt="" /> : maker.initials}
+          </span>
+          <span>{maker.name}<small>{maker.craft}</small></span>
+        </span>
       </div>
     </article>
   )
@@ -1427,7 +1531,9 @@ function ProjectPage({ project, onNavigate, onBack, backLabel = 'Back to portfol
         <aside className="maker-aside">
           <p className="section-label">The maker</p>
           <div className="maker-aside-profile">
-            <span className="portrait-small" aria-hidden="true">{maker.initials}</span>
+            <span className="portrait-small" aria-hidden="true">
+              {maker.avatarUrl ? <img src={maker.avatarUrl} alt="" /> : maker.initials}
+            </span>
             <span><strong>{maker.name}</strong><small>{maker.craft} · {maker.location}</small></span>
           </div>
           <p>{maker.bio}</p>
@@ -1545,6 +1651,7 @@ function ProjectSpacePage({
     visibility: project.visibility === 'public' ? 'public' as const : 'private' as const,
   })
   const [savingSettings, setSavingSettings] = useState(false)
+  const [editingProject, setEditingProject] = useState(false)
 
   async function submitUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1573,6 +1680,7 @@ function ProjectSpacePage({
     setSavingSettings(true)
     try {
       await onSaveSettings(projectSettings)
+      setEditingProject(false)
     } catch {
       // The parent surfaces the API error in the app status banner.
     } finally {
@@ -1607,36 +1715,118 @@ function ProjectSpacePage({
         <a href="#overview">Overview</a>
         <a href="#progress">Progress</a>
         <a href="#media">Media</a>
-        <a href="#settings">Settings</a>
       </nav>
       <section className="project-world" id="overview">
         <img className="project-world-cover" src={project.image} alt={project.imageAlt} />
         <div className="project-world-copy">
-          <p className="section-label">Project overview</p>
-          <p>{project.description}</p>
-          <div className="project-world-facts">
-            <span><small>Maker</small><strong>{accountName}</strong></span>
-            <span><small>Current stage</small><strong>{stageLabel(project.stage)}</strong></span>
-            <span><small>Visibility</small><strong>{project.status === 'published' && project.visibility === 'public' ? 'Public' : 'Private'}</strong></span>
+          <div className="project-overview-heading">
+            <p className="section-label">Project overview</p>
+            {!editingProject && (
+              <button className="text-link project-edit-trigger" type="button" onClick={() => setEditingProject(true)}>
+                <PencilSimple aria-hidden="true" /> Edit details
+              </button>
+            )}
           </div>
-          {project.status === 'published' && project.visibility === 'public' && profileIsPublic && project.slug && (
-            <div className="project-share-link">
-              <label htmlFor="project-share-url">Share this project</label>
-              <div>
-                <input
-                  id="project-share-url"
-                  readOnly
-                  value={`${window.location.origin}/@${encodeURIComponent(profileSlug)}/${encodeURIComponent(project.slug)}`}
-                />
-                <button
-                  className="button button-dark"
-                  type="button"
-                  onClick={() => onCopyShare(`${window.location.origin}/@${encodeURIComponent(profileSlug)}/${encodeURIComponent(project.slug ?? '')}`)}
-                >
-                  Copy link
+          {editingProject ? (
+            <form className="project-form project-overview-form" onSubmit={submitProjectSettings}>
+              <label>Project title
+                <input required maxLength={90} value={projectSettings.title} onChange={(event) => setProjectSettings({ ...projectSettings, title: event.target.value })} />
+              </label>
+              <label>What was the work?
+                <textarea required maxLength={500} rows={4} value={projectSettings.description} onChange={(event) => setProjectSettings({ ...projectSettings, description: event.target.value })} />
+              </label>
+              <SuggestedChoiceField
+                label="Craft or service"
+                value={projectSettings.category}
+                options={craftOptions}
+                onChange={(category) => setProjectSettings((current) => ({ ...current, category }))}
+                required
+                maxLength={60}
+                placeholder="Type your craft or service"
+              />
+              <SuggestedChoiceField
+                label="Where was the work made?"
+                value={projectSettings.location}
+                options={locationOptions}
+                onChange={(location) => setProjectSettings((current) => ({ ...current, location }))}
+                maxLength={100}
+                placeholder="Type a town, city, or area"
+              />
+              <label>Current stage
+                <select value={projectSettings.stage} onChange={(event) => setProjectSettings({ ...projectSettings, stage: event.target.value as ProjectStage })}>
+                  <option value="planned">Planned</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </label>
+              <fieldset className="visibility-fieldset">
+                <legend>Visibility</legend>
+                <label className="visibility-toggle">
+                  <span>
+                    <strong>{projectSettings.visibility === 'public' ? 'Public' : 'Private'}</strong>
+                    <small>
+                      {projectSettings.visibility === 'public'
+                        ? 'Customers can see this project after you publish it.'
+                        : 'Only you can see this project. You can make it public later.'}
+                    </small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label="Project visibility"
+                    checked={projectSettings.visibility === 'public'}
+                    onChange={(event) => setProjectSettings({
+                      ...projectSettings,
+                      visibility: event.target.checked ? 'public' : 'private',
+                    })}
+                  />
+                </label>
+              </fieldset>
+              <div className="project-edit-actions">
+                <button className="button button-dark" type="submit" disabled={savingSettings}>
+                  {savingSettings ? 'Saving…' : 'Save project details'} <ArrowIcon />
                 </button>
+                <button className="text-link" type="button" onClick={() => {
+                  setProjectSettings({
+                    title: project.title,
+                    description: project.description,
+                    category: project.category,
+                    location: project.location,
+                    stage: project.stage,
+                    visibility: project.visibility === 'public' ? 'public' : 'private',
+                  })
+                  setEditingProject(false)
+                }}>Cancel</button>
               </div>
-            </div>
+            </form>
+          ) : (
+            <>
+              <p>{project.description}</p>
+              <div className="project-world-facts">
+                <span><small>Maker</small><strong>{accountName}</strong></span>
+                <span><small>Current stage</small><strong>{stageLabel(project.stage)}</strong></span>
+                <span><small>Visibility</small><strong>{project.status === 'published' && project.visibility === 'public' ? 'Public' : 'Private'}</strong></span>
+              </div>
+              {project.status === 'published' && project.visibility === 'public' && profileIsPublic && project.slug && (
+                <div className="project-share-link">
+                  <label htmlFor="project-share-url">Share this project</label>
+                  <div>
+                    <input
+                      id="project-share-url"
+                      readOnly
+                      value={`${window.location.origin}/@${encodeURIComponent(profileSlug)}/${encodeURIComponent(project.slug)}`}
+                    />
+                    <button
+                      className="button button-dark"
+                      type="button"
+                      onClick={() => onCopyShare(`${window.location.origin}/@${encodeURIComponent(profileSlug)}/${encodeURIComponent(project.slug ?? '')}`)}
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -1764,60 +1954,6 @@ function ProjectSpacePage({
           ? <MediaPreviews files={project.attachments} />
           : <p className="project-empty-media">No project media added yet. Add photos or video while editing this project.</p>}
       </section>
-      <section className="project-world-section project-settings-section" id="settings">
-        <div className="project-section-heading">
-          <div><p className="section-label">Project settings</p><h2>Update project details</h2></div>
-        </div>
-        <form className="project-form" onSubmit={submitProjectSettings}>
-          <label>Project title
-            <input required maxLength={90} value={projectSettings.title} onChange={(event) => setProjectSettings({ ...projectSettings, title: event.target.value })} />
-          </label>
-          <label>What was the work?
-            <textarea required maxLength={500} rows={4} value={projectSettings.description} onChange={(event) => setProjectSettings({ ...projectSettings, description: event.target.value })} />
-          </label>
-          <label>Craft or service
-            <input required maxLength={60} value={projectSettings.category} onChange={(event) => setProjectSettings({ ...projectSettings, category: event.target.value })} />
-          </label>
-          <label>Where was the work made?
-            <input maxLength={100} value={projectSettings.location} onChange={(event) => setProjectSettings({ ...projectSettings, location: event.target.value })} />
-          </label>
-          <label>Current stage
-            <select value={projectSettings.stage} onChange={(event) => setProjectSettings({ ...projectSettings, stage: event.target.value as ProjectStage })}>
-              <option value="planned">Planned</option>
-              <option value="in-progress">In progress</option>
-              <option value="completed">Completed</option>
-            </select>
-          </label>
-          <fieldset className="stage-fieldset">
-            <legend>Who can see this project?</legend>
-            <div className="stage-options">
-              {([
-                ['private', project.status === 'published' ? 'Private' : 'Private draft'],
-                ['public', project.status === 'published' ? 'Public' : 'Public when published'],
-              ] as const).map(([value, label]) => (
-                <label className={`stage-option${projectSettings.visibility === value ? ' is-selected' : ''}`} key={value}>
-                  <input
-                    type="radio"
-                    name="project-visibility"
-                    value={value}
-                    checked={projectSettings.visibility === value}
-                    onChange={() => setProjectSettings({ ...projectSettings, visibility: value })}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-            <p className="form-note">
-              {project.status === 'published'
-                ? 'A private project is removed from customer discovery. You can make it public again at any time.'
-                : 'Customers can find this project after you publish it.'}
-            </p>
-          </fieldset>
-          <button className="button button-dark" type="submit" disabled={savingSettings}>
-            {savingSettings ? 'Saving…' : 'Save project details'} <ArrowIcon />
-          </button>
-        </form>
-      </section>
     </section>
   )
 }
@@ -1929,20 +2065,25 @@ function MakerProfilePage({
   profileType,
   details,
   onSave,
+  onUploadAvatar,
   onNavigate,
   onCopyShare,
 }: {
   accountName: string
   email: string
   profileType: AuthUser['profile']['profile_type']
-  details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }
+  details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean; avatarUrl: string }
   onSave: (details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
+  onUploadAvatar: (file: File) => Promise<string | null>
   onNavigate: (view: View) => void
   onCopyShare: (url: string) => void
 }) {
   const [draft, setDraft] = useState(details)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   async function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1961,13 +2102,48 @@ function MakerProfilePage({
     <section className="page-section maker-profile-page">
       <button className="back-link" type="button" onClick={() => onNavigate('dashboard')}><ArrowIcon /> Your projects</button>
       <header className="maker-profile-heading">
-        <div className="maker-profile-monogram" aria-hidden="true">{accountName.slice(0, 1).toLocaleUpperCase()}</div>
+        <button
+          className="maker-profile-avatar"
+          type="button"
+          onClick={() => avatarInput.current?.click()}
+          disabled={uploadingAvatar}
+          aria-label={draft.avatarUrl ? 'Change profile photo' : 'Add a profile photo'}
+        >
+          {draft.avatarUrl
+            ? <img src={draft.avatarUrl} alt="" />
+            : <span aria-hidden="true">{accountName.slice(0, 1).toLocaleUpperCase()}</span>}
+          <span className="maker-profile-avatar-action">{uploadingAvatar ? 'Uploading…' : 'Add photo'}</span>
+        </button>
+        <input
+          ref={avatarInput}
+          className="visually-hidden"
+          type="file"
+          accept="image/jpeg,image/png"
+          aria-label="Choose a JPEG or PNG profile photo"
+          onChange={async (event) => {
+            const file = event.currentTarget.files?.[0]
+            event.currentTarget.value = ''
+            if (!file) return
+            setUploadingAvatar(true)
+            setAvatarError('')
+            try {
+              const avatarUrl = await onUploadAvatar(file)
+              setDraft((current) => ({ ...current, avatarUrl: avatarUrl ?? '' }))
+            } catch (error) {
+              setAvatarError(error instanceof Error ? error.message : 'We could not upload your profile photo.')
+            } finally {
+              setUploadingAvatar(false)
+            }
+          }}
+        />
         <div>
           <p className="section-label">Your maker profile</p>
           <h1>{accountName}</h1>
           <p>{email} <span>·</span> {profileType === 'individual' ? 'Independent maker' : profileType === 'workshop' ? 'Workshop' : 'Business'}</p>
+          <small className="maker-profile-avatar-hint">Choose a JPEG or PNG, up to 5 MB.</small>
         </div>
       </header>
+      {avatarError && <p className="status-banner" role="alert">{avatarError}</p>}
       <div className="maker-profile-layout">
         <form className="profile-edit-form" onSubmit={submitProfile}>
           <h2>Tell customers about your work</h2>
@@ -2186,12 +2362,23 @@ function WorkspacePage({
           <label>What was the work?
             <textarea value={description} onChange={(event) => onDescriptionChange(event.target.value)} required rows={5} maxLength={500} placeholder="Add the brief, the materials, or a detail about how it came together." />
           </label>
-          <label>Craft or service
-            <input value={category} onChange={(event) => onCategoryChange(event.target.value)} required maxLength={60} placeholder="e.g. Ceramics, woodwork, upholstery" />
-          </label>
-          <label>Where was the work made?
-            <input value={location} onChange={(event) => onLocationChange(event.target.value)} maxLength={100} placeholder="e.g. Yaba, Lagos" />
-          </label>
+          <SuggestedChoiceField
+            label="Craft or service"
+            value={category}
+            options={craftOptions}
+            onChange={onCategoryChange}
+            required
+            maxLength={60}
+            placeholder="Type your craft or service"
+          />
+          <SuggestedChoiceField
+            label="Where was the work made?"
+            value={location}
+            options={locationOptions}
+            onChange={onLocationChange}
+            maxLength={100}
+            placeholder="Type a town, city, or area"
+          />
           <fieldset className="stage-fieldset">
             <legend>Where is the project now?</legend>
             <div className="stage-options">

@@ -208,6 +208,27 @@ class AuthApiTests(unittest.TestCase):
         self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:5173")
         self.assertEqual(response.headers["access-control-allow-credentials"], "true")
 
+    def test_origin_allowlist_rejects_unapproved_requests_and_preflights(self) -> None:
+        origin = "https://unapproved.example"
+        response = self.http.get("/health", headers={"Origin": origin})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "This request origin is not allowed.")
+
+        preflight = self.http.options(
+            "/api/v1/auth/login",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        self.assertEqual(preflight.status_code, 403)
+        self.assertNotIn("access-control-allow-origin", preflight.headers)
+
+    def test_requests_without_origin_remain_available_for_health_checks(self) -> None:
+        response = self.http.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
     def test_production_defaults_allow_vercel_and_secure_cross_site_cookies(self) -> None:
         settings = Settings(_env_file=None)
         self.assertEqual(settings.allowed_frontend_origins, ["https://decraft.vercel.app"])

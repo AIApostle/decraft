@@ -24,7 +24,9 @@ The Python SDK is used for runtime Auth and PostgREST interactions. Database tab
 4. Apply the ordered migrations in `supabase/migrations/` with the Supabase CLI (`supabase db push`). They create profiles, project/media and discovery tables, RLS policies, the private `project-media` bucket, and public share slugs.
 5. For local development, use `AUTH_COOKIE_SECURE=false` and `AUTH_COOKIE_SAMESITE=lax`. For production on Vercel and Render, configure the Render environment with `FRONTEND_ORIGINS=https://decraft.vercel.app`, `AUTH_COOKIE_SECURE=true`, and `AUTH_COOKIE_SAMESITE=none`. The frontend production build defaults to `https://decraft.onrender.com`; set `VITE_API_BASE_URL` in Vercel only if the API is hosted elsewhere. The production domains are cross-site, so credentialed CORS and secure `SameSite=None` cookies are required.
 
-The backend supports Python 3.11 and newer. Render should use Python 3.11, matching `.python-version`.
+`FRONTEND_ORIGINS` is an exact comma-separated origin allowlist (scheme, host, and optional port). CORS handles browser preflights and response headers; origin middleware rejects requests and preflights that supply an unapproved `Origin`. Requests without an `Origin` remain available for health checks and non-browser clients, so this is not a replacement for authentication or authorization.
+
+The backend supports Python 3.11 and newer. Render is pinned to Python 3.11.2 in `.python-version`.
 
 ## Run
 

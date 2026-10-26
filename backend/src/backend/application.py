@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.middleware.origin_allowlist import OriginAllowlistMiddleware
 from backend.api.routes.auth import router as auth_router
 from backend.api.routes.profile import router as profile_router
 from backend.api.routes.projects import router as projects_router
@@ -16,6 +17,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["DELETE", "GET", "OPTIONS", "PATCH", "POST"],
         allow_headers=["Content-Type"],
+    )
+    app.add_middleware(
+        OriginAllowlistMiddleware,
+        allowed_origins=app.state.settings.allowed_frontend_origins,
     )
     app.include_router(auth_router)
     app.include_router(profile_router)

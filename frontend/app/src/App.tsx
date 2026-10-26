@@ -172,7 +172,7 @@ function App() {
   const [draftTitle, setDraftTitle] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftStage, setDraftStage] = useState<ProjectStage>('planned')
-  const [draftVisibility, setDraftVisibility] = useState<'private' | 'public'>('private')
+  const [draftVisibility, setDraftVisibility] = useState<'private' | 'public'>('public')
   const [draftCategory, setDraftCategory] = useState('')
   const [draftLocation, setDraftLocation] = useState('')
   const [draftAttachments, setDraftAttachments] = useState<ProjectMedia[]>([])
@@ -478,7 +478,7 @@ function App() {
     setDraftTitle('')
     setDraftDescription('')
     setDraftStage('planned')
-    setDraftVisibility('private')
+    setDraftVisibility('public')
     setDraftCategory('')
     setDraftLocation('')
     setDraftAttachments([])
@@ -2207,26 +2207,25 @@ function WorkspacePage({
               ))}
             </div>
           </fieldset>
-          <fieldset className="stage-fieldset">
-            <legend>Who can see this project?</legend>
-            <div className="stage-options">
-              {([
-                ['private', 'Private draft'],
-                ['public', 'Public when published'],
-              ] as const).map(([value, label]) => (
-                <label className={`stage-option${visibility === value ? ' is-selected' : ''}`} key={value}>
-                  <input
-                    type="radio"
-                    name="project-visibility"
-                    value={value}
-                    checked={visibility === value}
-                    onChange={() => onVisibilityChange(value)}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-            <p className="form-note">You can change this later. Public projects appear to customers after you publish.</p>
+          <fieldset className="visibility-fieldset">
+            <legend>Visibility</legend>
+            <label className="visibility-toggle">
+              <span>
+                <strong>{visibility === 'public' ? 'Public' : 'Private'}</strong>
+                <small>
+                  {visibility === 'public'
+                    ? 'Customers can see this project after you publish it.'
+                    : 'Only you can see this project. You can make it public later.'}
+                </small>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Project visibility"
+                checked={visibility === 'public'}
+                onChange={(event) => onVisibilityChange(event.target.checked ? 'public' : 'private')}
+              />
+            </label>
           </fieldset>
           <MediaPicker
             files={attachments}
@@ -2246,7 +2245,11 @@ function WorkspacePage({
           <h2>{title || 'Your project title'}</h2>
           <p>{description || 'The story of the work will appear here.'}</p>
           <MilestoneTrack stage={stage} />
-          <p className="preview-caption">Only you can see this draft until you publish it.</p>
+          <p className="preview-caption">
+            {visibility === 'public'
+              ? 'Customers can see this project after you publish it.'
+              : 'Only you can see this project.'}
+          </p>
         </aside>
       </div>
     </section>

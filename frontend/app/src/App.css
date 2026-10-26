@@ -96,15 +96,20 @@
 .primary-navigation .nav-home {
   min-height: 2.75rem;
   padding: 0.75rem 1.2rem;
-  background: var(--moss);
-  color: #fffdf7;
+  background: transparent;
+  color: var(--ink);
   font-size: 0.94rem;
   font-weight: 700;
 }
 
 .primary-navigation .nav-home.is-active,
 .primary-navigation .nav-projects.is-active {
-  background: var(--ink);
+  background: var(--moss);
+  color: #fffdf7;
+}
+
+.primary-navigation .nav-home.is-active:hover,
+.primary-navigation .nav-projects.is-active:hover {
   color: #fffdf7;
 }
 
@@ -1359,6 +1364,89 @@ button:hover .icon-arrow {
   margin: 0;
   border: 0;
   padding: 0;
+}
+
+.visibility-fieldset {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.visibility-fieldset legend {
+  margin-bottom: 0.1rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.visibility-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  border: 1px solid var(--rule);
+  padding: 0.9rem 1rem;
+  background: var(--paper);
+}
+
+.visibility-toggle > span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.visibility-toggle strong {
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.visibility-toggle small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.visibility-toggle input {
+  appearance: none;
+  position: relative;
+  width: 3rem;
+  min-width: 3rem;
+  height: 1.7rem;
+  min-height: 1.7rem;
+  margin: 0;
+  border: 1px solid #777367;
+  border-radius: 999px;
+  background: #d4d0c6;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.visibility-toggle input::before {
+  position: absolute;
+  top: 0.18rem;
+  left: 0.18rem;
+  width: 1.18rem;
+  height: 1.18rem;
+  border-radius: 50%;
+  background: #fffdf7;
+  content: '';
+  transition: transform 160ms ease;
+}
+
+.visibility-toggle input:checked {
+  border-color: var(--moss);
+  background: var(--moss);
+}
+
+.visibility-toggle input:checked::before {
+  transform: translateX(1.27rem);
+}
+
+.visibility-toggle input:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 3px;
 }
 
 .stage-fieldset legend {
@@ -3115,8 +3203,8 @@ button:hover .icon-arrow {
   }
 
   .mobile-app-nav button.is-active {
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--moss);
+    color: #fffdf7;
   }
 
   .mobile-app-nav svg {

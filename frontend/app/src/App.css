@@ -18,8 +18,9 @@
 }
 
 .site-header {
-  position: relative;
-  z-index: 5;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -27,6 +28,7 @@
   margin: 0 auto;
   padding: 1.05rem clamp(1.25rem, 5.5vw, 5.5rem);
   border-bottom: 1px solid var(--rule);
+  background: var(--ground);
 }
 
 .wordmark {
@@ -1147,6 +1149,18 @@ button:hover .icon-arrow {
   line-height: 1.7;
 }
 
+.detail-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.detail-page-actions .back-link {
+  margin-bottom: 0;
+}
+
 .detail-timeline {
   margin-top: 3rem;
 }
@@ -1157,7 +1171,7 @@ button:hover .icon-arrow {
   font: 400 2rem/1.15 var(--display);
 }
 
-.detail-timeline ol {
+.detail-timeline > ol {
   position: relative;
   display: grid;
   gap: 0;
@@ -1166,7 +1180,7 @@ button:hover .icon-arrow {
   list-style: none;
 }
 
-.detail-timeline ol::before {
+.detail-timeline > ol::before {
   position: absolute;
   top: 0.65rem;
   bottom: 1.15rem;
@@ -1176,7 +1190,7 @@ button:hover .icon-arrow {
   content: '';
 }
 
-.detail-timeline li {
+.detail-timeline > ol > li {
   position: relative;
   display: flex;
   gap: 1rem;
@@ -1194,22 +1208,42 @@ button:hover .icon-arrow {
   background: var(--paper);
 }
 
-.detail-timeline li.is-complete .timeline-dot {
-  border-color: var(--moss);
-  background: var(--moss);
-}
-
-.detail-timeline li strong {
+.detail-timeline > ol > li > div > strong {
   display: block;
   font-size: 0.87rem;
   font-weight: 600;
 }
 
-.detail-timeline li small {
+.detail-timeline-day-updates {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail-timeline-day-updates li {
+  min-width: 0;
+}
+
+.detail-timeline-day-updates li strong {
+  display: block;
+  font-size: 0.87rem;
+  font-weight: 600;
+}
+
+.detail-timeline-day-updates li small {
   display: block;
   margin-top: 0.25rem;
   color: var(--ink-soft);
   font-size: 0.76rem;
+}
+
+.detail-timeline-day-updates li p {
+  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .maker-aside {
@@ -2395,6 +2429,44 @@ button:hover .icon-arrow {
   padding-top: 1.2rem;
 }
 
+.profile-share-link,
+.project-share-link {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+}
+
+.profile-share-link > label,
+.project-share-link > label {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.profile-share-link > div,
+.project-share-link > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.profile-share-link input,
+.project-share-link input {
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font: 0.82rem/1.4 var(--sans);
+}
+
+.profile-share-link > small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
 .project-world-facts span {
   display: grid;
   gap: 0.35rem;
@@ -2513,6 +2585,30 @@ button:hover .icon-arrow {
   gap: 1rem;
   border-top: 1px solid var(--rule);
   padding: 1.4rem 0;
+}
+
+.project-update-day-content {
+  min-width: 0;
+}
+
+.project-update-day-label {
+  margin: 0 0 0.8rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.project-update-day-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-update-day-list > li + li {
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
 }
 
 .update-timeline-mark {

@@ -9,7 +9,7 @@ status: approved
 
 Decraft is a work-centered professional network for artisans, workshops, and businesses. It gives each professional a place to document projects over time and reuse that work as a portfolio customers can discover. The learner describes it as a “GitHub for craftsmen.”
 
-The full P0 feature set in the project PRD is the MVP and will be delivered in stages. This product plan is grounded in [the project's PRD](../../PRD.md), not a replacement for its detailed requirements.
+The full P0 feature set in the project PRD is the MVP and will be delivered in stages. This product plan is grounded in [the project's PRD](../PRD.md), not a replacement for its detailed requirements.
 
 ## Users and Needs
 
@@ -120,4 +120,4 @@ P1 storage tiers, business analytics, and paid features; P2 reviews and ratings,
 
 ## Source
 
-The detailed source of truth is the top-level [Decraft PRD](../../PRD.md), especially its MVP priorities, functional requirements, user journeys, information architecture, and launch acceptance criteria.
+The detailed source of truth is the top-level [Decraft PRD](../PRD.md), especially its MVP priorities, functional requirements, user journeys, information architecture, and launch acceptance criteria.

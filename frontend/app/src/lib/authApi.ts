@@ -21,7 +21,12 @@ export class ApiError extends Error {
   }
 }
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ?? ''
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+const apiBaseUrl = configuredApiBaseUrl
+  ? configuredApiBaseUrl.replace(/\/+$/, '')
+  : import.meta.env.PROD
+    ? 'https://decraft.onrender.com'
+    : ''
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)

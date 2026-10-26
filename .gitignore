@@ -1,1 +1,16 @@
 /devpost/learner-profile.md
+
+# Local credentials and environment configuration
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.p12
+*.pfx
+**/credentials.json
+**/*service-account*.json
+
+# Local MCP server configuration may contain authentication details
+**/.mcp.json
+**/mcp.json
+**/.vscode/mcp.json

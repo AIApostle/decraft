@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 from types import SimpleNamespace
 
@@ -102,8 +104,12 @@ class AuthApiTests(unittest.TestCase):
             table=lambda table_name: self.profile_query,
         )
         settings = Settings(
+            _env_file=None,
             supabase_url="https://example.supabase.co",
             supabase_anon_key=SecretStr("public-anon-key"),
+            frontend_origins="http://localhost:5173,https://decraft.vercel.app",
+            auth_cookie_secure=False,
+            auth_cookie_samesite="lax",
         )
         self.app = create_app(settings)
         self.app.dependency_overrides[get_supabase_client] = lambda: self.client
@@ -200,6 +206,26 @@ class AuthApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:5173")
+        self.assertEqual(response.headers["access-control-allow-credentials"], "true")
+
+    def test_production_defaults_allow_vercel_and_secure_cross_site_cookies(self) -> None:
+        settings = Settings(_env_file=None)
+        self.assertEqual(settings.allowed_frontend_origins, ["https://decraft.vercel.app"])
+        self.assertTrue(settings.auth_cookie_secure)
+        self.assertEqual(settings.auth_cookie_samesite, "none")
+
+        with TestClient(create_app(settings)) as http:
+            response = http.options(
+                "/api/v1/auth/login",
+                headers={
+                    "Origin": "https://decraft.vercel.app",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "https://decraft.vercel.app",
+        )
         self.assertEqual(response.headers["access-control-allow-credentials"], "true")
 
     def test_missing_supabase_configuration_returns_service_unavailable(self) -> None:

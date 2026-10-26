@@ -1,5 +1,5 @@
 import { Upload } from 'tus-js-client'
-import type { Project, ProjectMedia, ProjectStage, ProjectUpdate } from '../data/sampleData'
+import type { Maker, Project, ProjectMedia, ProjectStage, ProjectUpdate } from '../data/sampleData'
 import { apiRequest, ApiError } from './authApi'
 
 type ApiStage = 'planned' | 'in_progress' | 'completed'
@@ -31,7 +31,10 @@ interface ApiProjectUpdate {
 
 interface ApiProject {
   id: string
+  slug: string
   owner_profile_id: string
+  owner_profile_slug: string | null
+  owner_profile_public: boolean
   owner_name: string | null
   owner_primary_craft: string | null
   owner_city: string | null
@@ -60,12 +63,19 @@ interface UploadCapability {
 
 interface ApiProfile {
   id: string
+  slug: string
   display_name: string
   profile_type: 'individual' | 'workshop' | 'business'
   primary_craft: string | null
   city: string | null
   bio: string | null
   is_public: boolean
+}
+
+export interface PublicMakerProfile {
+  slug: string
+  maker: Maker
+  projects: Project[]
 }
 
 function toApiStage(stage: ProjectStage): ApiStage {
@@ -109,6 +119,8 @@ export function mapProject(project: ApiProject): Project {
   return {
     id: project.id,
     makerId: project.owner_profile_id,
+    slug: project.slug,
+    ownerProfileSlug: project.owner_profile_slug ?? undefined,
     ownerName: project.owner_name ?? undefined,
     ownerCraft: project.owner_primary_craft ?? undefined,
     ownerLocation: project.owner_city ?? undefined,
@@ -136,6 +148,37 @@ export async function listProjects(): Promise<Project[]> {
 export async function listDiscoverProjects(): Promise<Project[]> {
   const response = await apiRequest<ApiProject[]>('/api/v1/projects/discover')
   return response.map(mapProject)
+}
+
+export async function getPublicProfile(profileSlug: string): Promise<PublicMakerProfile> {
+  const response = await apiRequest<{
+    slug: string
+    display_name: string
+    profile_type: 'individual' | 'workshop' | 'business'
+    primary_craft: string | null
+    city: string | null
+    bio: string | null
+    projects: ApiProject[]
+  }>(`/api/v1/projects/share/${encodeURIComponent(profileSlug)}`)
+  const name = response.display_name
+  return {
+    slug: response.slug,
+    maker: {
+      id: response.slug,
+      name,
+      craft: response.primary_craft ?? 'Maker',
+      location: response.city ?? '',
+      bio: response.bio ?? '',
+      initials: name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toLocaleUpperCase(),
+    },
+    projects: response.projects.map(mapProject),
+  }
+}
+
+export async function getPublicProject(profileSlug: string, projectSlug: string): Promise<Project> {
+  return mapProject(await apiRequest<ApiProject>(
+    `/api/v1/projects/share/${encodeURIComponent(profileSlug)}/${encodeURIComponent(projectSlug)}`,
+  ))
 }
 
 export async function getProject(projectId: string): Promise<Project> {
@@ -281,7 +324,7 @@ export function getProfileSettings(): Promise<ApiProfile> {
 }
 
 export function updateProfileSettings(
-  values: Partial<Pick<ApiProfile, 'primary_craft' | 'city' | 'bio' | 'is_public'>>,
+  values: Partial<Pick<ApiProfile, 'slug' | 'primary_craft' | 'city' | 'bio' | 'is_public'>>,
 ): Promise<ApiProfile> {
   return apiRequest<ApiProfile>('/api/v1/profile', {
     method: 'PATCH',

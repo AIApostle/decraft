@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: SecretStr = SecretStr("")
     supabase_service_role_key: SecretStr = SecretStr("")
-    frontend_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
-    auth_cookie_secure: bool = False
-    auth_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    frontend_origins: str = "https://decraft.vercel.app"
+    auth_cookie_secure: bool = True
+    auth_cookie_samesite: Literal["lax", "strict", "none"] = "none"
 
     @property
     def allowed_frontend_origins(self) -> list[str]:

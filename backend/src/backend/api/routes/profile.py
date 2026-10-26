@@ -64,9 +64,25 @@ def save_profile(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Choose whether your profile is visible to customers.",
         )
+    if values.get("slug") is None and "slug" in values:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Choose a profile username.",
+        )
     try:
         profile = update_profile(client, _profile_id(user), values)
-    except (APIError, httpx.HTTPError):
+    except APIError as error:
+        if getattr(error, "code", None) == "23505" and "slug" in values:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="That Decraft username is already in use. Choose another one.",
+            ) from None
+        logger.exception("Supabase profile update failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't save your profile settings. Try again.",
+        ) from None
+    except httpx.HTTPError:
         logger.exception("Supabase profile update failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

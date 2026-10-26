@@ -7,6 +7,8 @@ import {
   createProject,
   createProjectUpdate,
   getProject,
+  getPublicProfile,
+  getPublicProject,
   getProfileSettings,
   listDiscoverProjects,
   listProjects,
@@ -15,6 +17,7 @@ import {
   updateProfileSettings,
   updateProject,
   uploadProjectMedia,
+  type PublicMakerProfile,
 } from './lib/projectsApi'
 import { LoginPage, SignUpPage } from './pages/AuthPages'
 import './App.css'
@@ -25,6 +28,8 @@ type View =
   | 'discover'
   | 'portfolio'
   | 'project'
+  | 'public-profile'
+  | 'public-project'
   | 'dashboard'
   | 'profile'
   | 'settings'
@@ -84,10 +89,38 @@ function createProjectMedia(files: File[], urlRegistry: string[]): ProjectMedia[
     })
 }
 
-function formatDateTime(date: string): string {
+function groupUpdatesByDay(updates: ProjectUpdate[]) {
+  const groups = new Map<string, { label: string; updates: ProjectUpdate[] }>()
+  const orderedUpdates = [...updates].sort(
+    (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
+  )
+
+  for (const update of orderedUpdates) {
+    const date = new Date(update.createdAt)
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    const group = groups.get(key)
+    if (group) {
+      group.updates.push(update)
+      continue
+    }
+    groups.set(key, {
+      label: new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(date),
+      updates: [update],
+    })
+  }
+
+  return [...groups.entries()].map(([key, group]) => ({ key, ...group }))
+}
+
+function formatUpdateTime(date: string): string {
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'long',
-    timeStyle: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
   }).format(new Date(date))
 }
 
@@ -97,6 +130,8 @@ function viewForPath(pathname: string): View {
   if (pathname === '/find-work' || pathname === '/app/find-work') return 'discover'
   if (/^\/(?:portfolio|app\/makers)\/[^/]+$/.test(pathname)) return 'portfolio'
   if (/^\/(?:project|app\/discovery\/projects)\/[^/]+$/.test(pathname)) return 'project'
+  if (/^\/@[^/]+\/[^/]+$/.test(pathname)) return 'public-project'
+  if (/^\/@[^/]+$/.test(pathname)) return 'public-profile'
   if (pathname === '/app') return 'dashboard'
   if (pathname === '/app/profile') return 'profile'
   if (pathname === '/app/settings') return 'settings'
@@ -117,6 +152,12 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [discoveryProjects, setDiscoveryProjects] = useState<Project[]>([])
+  const [publicRouteResult, setPublicRouteResult] = useState<{
+    pathname: string
+    profile?: PublicMakerProfile
+    project?: Project
+    error?: string
+  } | null>(null)
   const [loadedProjectsUserId, setLoadedProjectsUserId] = useState<string | null>(null)
   const [projectsError, setProjectsError] = useState('')
   const [profileLoading, setProfileLoading] = useState(true)
@@ -136,6 +177,7 @@ function App() {
   const [draftLocation, setDraftLocation] = useState('')
   const [draftAttachments, setDraftAttachments] = useState<ProjectMedia[]>([])
   const [profileDetails, setProfileDetails] = useState({
+    slug: '',
     craft: '',
     location: '',
     bio: '',
@@ -143,6 +185,16 @@ function App() {
   })
   const mediaUrls = useRef<string[]>([])
   const authUserId = authUser?.id
+  const publicRoute = routeLocation.pathname.match(/^\/@([^/]+)(?:\/([^/]+))?$/)
+  const publicProfileSlug = publicRoute?.[1]
+  const publicProjectSlug = publicRoute?.[2]
+  const currentPublicRoute = publicRouteResult?.pathname === routeLocation.pathname
+    ? publicRouteResult
+    : null
+  const publicProfile = currentPublicRoute?.profile ?? null
+  const publicProject = currentPublicRoute?.project ?? null
+  const publicRouteLoading = Boolean(publicProfileSlug && !currentPublicRoute)
+  const publicRouteError = currentPublicRoute?.error ?? ''
   const projectsLoading = authStatus === 'signed-in' && Boolean(authUserId) && loadedProjectsUserId !== authUserId
   const protectedViews: View[] = ['discover', 'portfolio', 'project', 'dashboard', 'profile', 'settings', 'project-space', 'workspace', 'review']
   const isProtectedView = protectedViews.includes(view)
@@ -199,6 +251,7 @@ function App() {
       .then((profile) => {
         if (!active) return
         setProfileDetails({
+          slug: profile.slug,
           craft: profile.primary_craft ?? '',
           location: profile.city ?? '',
           bio: profile.bio ?? '',
@@ -216,6 +269,31 @@ function App() {
       active = false
     }
   }, [authStatus, authUserId])
+
+  useEffect(() => {
+    if (!publicProfileSlug) return
+
+    let active = true
+    const pathname = routeLocation.pathname
+    const request = publicProjectSlug
+      ? getPublicProject(publicProfileSlug, publicProjectSlug).then((project) => {
+          if (active) setPublicRouteResult({ pathname, project })
+        })
+      : getPublicProfile(publicProfileSlug).then((profile) => {
+          if (active) setPublicRouteResult({ pathname, profile })
+        })
+    void request
+      .catch((error: unknown) => {
+        if (!active) return
+        setPublicRouteResult({
+          pathname,
+          error: error instanceof Error ? error.message : 'We could not load this page.',
+        })
+      })
+    return () => {
+      active = false
+    }
+  }, [publicProfileSlug, publicProjectSlug, routeLocation.pathname])
 
   useEffect(() => {
     const legacyRoutes: Record<string, string> = {
@@ -299,11 +377,13 @@ function App() {
       'project-space': `/app/projects/${id || selectedProjectId || projectIdFromPath || ''}`,
       workspace: '/app/projects/new',
       review: id ? `/app/projects/${id}/review` : '/app/review',
+      'public-profile': id ? `/@${id}` : '/',
+      'public-project': id ?? '/',
       login: '/login',
       signup: '/signup',
       'not-found': '/not-found',
     }
-    if (protectedViews.includes(nextView) && authStatus === 'signed-out') {
+    if (protectedViews.includes(nextView) && authStatus !== 'signed-in') {
       routerNavigate(`/signup?next=${encodeURIComponent(paths[nextView])}`)
     } else {
       routerNavigate(paths[nextView])
@@ -448,12 +528,14 @@ function App() {
   async function saveProfile(details: typeof profileDetails) {
     try {
       const profile = await updateProfileSettings({
+        slug: details.slug.trim(),
         primary_craft: details.craft.trim() || null,
         city: details.location.trim() || null,
         bio: details.bio.trim() || null,
         is_public: details.isPublic,
       })
       const savedDetails = {
+        slug: profile.slug,
         craft: profile.primary_craft ?? '',
         location: profile.city ?? '',
         bio: profile.bio ?? '',
@@ -521,7 +603,7 @@ function App() {
       setProjects([])
       setDiscoveryProjects([])
       setLoadedProjectsUserId(null)
-      setProfileDetails({ craft: '', location: '', bio: '', isPublic: false })
+      setProfileDetails({ slug: '', craft: '', location: '', bio: '', isPublic: false })
       setProfileLoading(true)
       routerNavigate('/')
     } catch (error) {
@@ -538,6 +620,15 @@ function App() {
     } catch (error) {
       setAuthUser(null)
       setAuthStatus(error instanceof ApiError && error.status === 401 ? 'signed-out' : 'error')
+    }
+  }
+
+  async function copyShareLink(url: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      setAnnouncement(`${label} copied to your clipboard.`)
+    } catch {
+      setAnnouncement(`Clipboard access is unavailable. Select and copy the ${label.toLocaleLowerCase()} shown on the page.`)
     }
   }
 
@@ -609,7 +700,45 @@ function App() {
                 const makerProject = visibleProjects.find((project) => project.makerId === selectedMaker.id)
                 if (makerProject) openProject(makerProject)
               }}
+              onBack={() => navigate('discover')}
+            />
+          )}
+          {(view === 'public-profile' || view === 'public-project') && publicRouteLoading && (
+            <AuthStatePage message="Loading this public page…" />
+          )}
+          {(view === 'public-profile' || view === 'public-project') && !publicRouteLoading && publicRouteError && (
+            <section className="page-section empty-state">
+              <h1>This page is unavailable.</h1>
+              <p>{publicRouteError}</p>
+              <button className="text-link" type="button" onClick={() => routerNavigate('/')}>Back to Decraft <ArrowIcon /></button>
+            </section>
+          )}
+          {view === 'public-profile' && !publicRouteLoading && publicProfile && (
+            <PortfolioPage
+              maker={publicProfile.maker}
+              projects={publicProfile.projects}
+              onOpenProject={(project) => {
+                if (!project.slug) return
+                routerNavigate(`/@${encodeURIComponent(publicProfile.slug)}/${encodeURIComponent(project.slug)}`)
+              }}
+              onContactMaker={() => {
+                const project = publicProfile.projects[0]
+                if (project?.slug) {
+                  routerNavigate(`/@${encodeURIComponent(publicProfile.slug)}/${encodeURIComponent(project.slug)}`)
+                }
+              }}
+              onBack={() => routerNavigate('/')}
+              backLabel="Back to Decraft"
+            />
+          )}
+          {view === 'public-project' && !publicRouteLoading && publicProject && (
+            <ProjectPage
+              project={publicProject}
               onNavigate={navigate}
+              onBack={() => routerNavigate(`/@${encodeURIComponent(publicProfileSlug ?? '')}`)}
+              backLabel="Back to maker profile"
+              shareLink={window.location.href}
+              onCopyShare={(url) => void copyShareLink(url, 'Project link')}
             />
           )}
           {view === 'project' && authStatus === 'signed-in' && selectedProject && (
@@ -642,6 +771,7 @@ function App() {
               details={profileDetails}
               onSave={saveProfile}
               onNavigate={navigate}
+              onCopyShare={(url) => void copyShareLink(url, 'Profile link')}
             />
           )}
           {view === 'settings' && authStatus === 'loading' && <AuthStatePage message="Checking your account…" />}
@@ -669,12 +799,15 @@ function App() {
                   key={selectedProject.id}
                   project={selectedProject}
                   accountName={authUser.profile.display_name}
+                  profileSlug={profileDetails.slug}
+                  profileIsPublic={profileDetails.isPublic}
                   onNavigate={navigate}
                   onPublish={publishDraft}
                   onAddUpdate={(update) => addProjectUpdate(selectedProject.id, update)}
                   onSaveSettings={(values) => saveProjectSettings(selectedProject.id, values)}
                   onCreateMedia={(files) => createProjectMedia(files, mediaUrls.current)}
                   onDiscardMedia={discardMedia}
+                  onCopyShare={(url) => void copyShareLink(url, 'Project link')}
                 />
           )}
           {view === 'portfolio' && makerIdFromPath && !visibleProjects.some((project) => project.makerId === makerIdFromPath) && (
@@ -1177,13 +1310,14 @@ interface PortfolioPageProps {
   projects: Project[]
   onOpenProject: (project: Project) => void
   onContactMaker: () => void
-  onNavigate: (view: View) => void
+  onBack: () => void
+  backLabel?: string
 }
 
-function PortfolioPage({ maker, projects, onOpenProject, onContactMaker, onNavigate }: PortfolioPageProps) {
+function PortfolioPage({ maker, projects, onOpenProject, onContactMaker, onBack, backLabel = 'Back to discovery' }: PortfolioPageProps) {
   return (
     <section className="page-section portfolio-page">
-      <button className="back-link" type="button" onClick={() => onNavigate('discover')}><ArrowIcon /> Back to discovery</button>
+      <button className="back-link" type="button" onClick={onBack}><ArrowIcon /> {backLabel}</button>
       <div className="portfolio-header">
         <div className="portrait-block" aria-hidden="true">{maker.initials}</div>
         <div>
@@ -1239,13 +1373,22 @@ function ProjectTile({ project, maker, onOpenProject }: ProjectTileProps) {
 interface ProjectPageProps {
   project: Project
   onNavigate: (view: View) => void
+  onBack?: () => void
+  backLabel?: string
+  shareLink?: string
+  onCopyShare?: (url: string) => void
 }
 
-function ProjectPage({ project, onNavigate }: ProjectPageProps) {
+function ProjectPage({ project, onNavigate, onBack, backLabel = 'Back to portfolio', shareLink, onCopyShare }: ProjectPageProps) {
   const maker = makerForProject(project)
   return (
     <section className="page-section detail-page">
-      <button className="back-link" type="button" onClick={() => onNavigate('portfolio')}><ArrowIcon /> Back to portfolio</button>
+      <div className="detail-page-actions">
+        <button className="back-link" type="button" onClick={onBack ?? (() => onNavigate('portfolio'))}><ArrowIcon /> {backLabel}</button>
+        {shareLink && onCopyShare && (
+          <button className="text-link" type="button" onClick={() => onCopyShare(shareLink)}>Copy project link</button>
+        )}
+      </div>
       <div className="detail-layout">
         <article className="project-detail">
           <div className="detail-image">
@@ -1259,14 +1402,21 @@ function ProjectPage({ project, onNavigate }: ProjectPageProps) {
             <section className="detail-timeline" aria-labelledby="timeline-heading">
               <h2 id="timeline-heading">The work, over time</h2>
               <ol>
-                {[...project.updates].reverse().map((update) => (
-                  <li key={update.id}>
+                {groupUpdatesByDay(project.updates).map((day) => (
+                  <li key={day.key}>
                     <span className="timeline-dot" aria-hidden="true" />
                     <div>
-                      <strong>{update.title}</strong>
-                      <small>{formatDateTime(update.createdAt)}</small>
-                      <p>{update.description}</p>
-                      {update.attachments.length > 0 && <MediaPreviews files={update.attachments} />}
+                      <strong>{day.label}</strong>
+                      <ol className="detail-timeline-day-updates">
+                        {day.updates.map((update) => (
+                          <li key={update.id}>
+                            <strong>{update.title}</strong>
+                            <small><time dateTime={update.createdAt}>{formatUpdateTime(update.createdAt)}</time> · {stageLabel(update.stage)}</small>
+                            <p>{update.description}</p>
+                            {update.attachments.length > 0 && <MediaPreviews files={update.attachments} />}
+                          </li>
+                        ))}
+                      </ol>
                     </div>
                   </li>
                 ))}
@@ -1356,23 +1506,29 @@ function ProjectDashboard({ projects, accountName, isLoading, error, onCreatePro
 interface ProjectSpacePageProps {
   project: Project
   accountName: string
+  profileSlug: string
+  profileIsPublic: boolean
   onNavigate: (view: View) => void
   onPublish: () => void
   onAddUpdate: (update: Omit<ProjectUpdate, 'id' | 'createdAt'>) => Promise<void>
   onSaveSettings: (values: Pick<Project, 'title' | 'description' | 'category' | 'location' | 'stage'> & { visibility: 'private' | 'public' }) => Promise<void>
   onCreateMedia: (files: File[]) => ProjectMedia[]
   onDiscardMedia: (media: ProjectMedia) => void
+  onCopyShare: (url: string) => void
 }
 
 function ProjectSpacePage({
   project,
   accountName,
+  profileSlug,
+  profileIsPublic,
   onNavigate,
   onPublish,
   onAddUpdate,
   onSaveSettings,
   onCreateMedia,
   onDiscardMedia,
+  onCopyShare,
 }: ProjectSpacePageProps) {
   const [addingUpdate, setAddingUpdate] = useState(false)
   const [updateTitle, setUpdateTitle] = useState('')
@@ -1463,6 +1619,25 @@ function ProjectSpacePage({
             <span><small>Current stage</small><strong>{stageLabel(project.stage)}</strong></span>
             <span><small>Visibility</small><strong>{project.status === 'published' && project.visibility === 'public' ? 'Public' : 'Private'}</strong></span>
           </div>
+          {project.status === 'published' && project.visibility === 'public' && profileIsPublic && project.slug && (
+            <div className="project-share-link">
+              <label htmlFor="project-share-url">Share this project</label>
+              <div>
+                <input
+                  id="project-share-url"
+                  readOnly
+                  value={`${window.location.origin}/@${encodeURIComponent(profileSlug)}/${encodeURIComponent(project.slug)}`}
+                />
+                <button
+                  className="button button-dark"
+                  type="button"
+                  onClick={() => onCopyShare(`${window.location.origin}/@${encodeURIComponent(profileSlug)}/${encodeURIComponent(project.slug ?? '')}`)}
+                >
+                  Copy link
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
       <section className="project-world-section" id="progress">
@@ -1547,18 +1722,27 @@ function ProjectSpacePage({
         )}
         {project.updates?.length ? (
           <ol className="project-update-timeline">
-            {[...project.updates].reverse().map((update) => (
-              <li key={update.id}>
+            {groupUpdatesByDay(project.updates).map((day) => (
+              <li key={day.key}>
                 <span className="update-timeline-mark" aria-hidden="true" />
-                <article>
-                  <div className="update-meta">
-                    <time dateTime={update.createdAt}>{formatDateTime(update.createdAt)}</time>
-                    <span>{stageLabel(update.stage)}</span>
-                  </div>
-                  <h3>{update.title}</h3>
-                  <p>{update.description}</p>
-                  {update.attachments.length > 0 && <MediaPreviews files={update.attachments} />}
-                </article>
+                <div className="project-update-day-content">
+                  <p className="project-update-day-label">{day.label}</p>
+                  <ol className="project-update-day-list">
+                    {day.updates.map((update) => (
+                      <li key={update.id}>
+                        <article>
+                          <div className="update-meta">
+                            <time dateTime={update.createdAt}>{formatUpdateTime(update.createdAt)}</time>
+                            <span>{stageLabel(update.stage)}</span>
+                          </div>
+                          <h3>{update.title}</h3>
+                          <p>{update.description}</p>
+                          {update.attachments.length > 0 && <MediaPreviews files={update.attachments} />}
+                        </article>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               </li>
             ))}
           </ol>
@@ -1746,13 +1930,15 @@ function MakerProfilePage({
   details,
   onSave,
   onNavigate,
+  onCopyShare,
 }: {
   accountName: string
   email: string
   profileType: AuthUser['profile']['profile_type']
-  details: { craft: string; location: string; bio: string; isPublic: boolean }
-  onSave: (details: { craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
+  details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }
+  onSave: (details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
   onNavigate: (view: View) => void
+  onCopyShare: (url: string) => void
 }) {
   const [draft, setDraft] = useState(details)
   const [saved, setSaved] = useState(false)
@@ -1785,6 +1971,20 @@ function MakerProfilePage({
       <div className="maker-profile-layout">
         <form className="profile-edit-form" onSubmit={submitProfile}>
           <h2>Tell customers about your work</h2>
+          <label>Decraft username
+            <input
+              value={draft.slug}
+              required
+              minLength={3}
+              maxLength={40}
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              autoCapitalize="none"
+              autoCorrect="off"
+              onChange={(event) => { setDraft({ ...draft, slug: event.target.value }); setSaved(false) }}
+              aria-describedby="profile-username-help"
+            />
+            <small id="profile-username-help">Use lowercase letters, numbers, and hyphens. This becomes your unique shareable profile address.</small>
+          </label>
           <label>Your craft or service
             <input
               value={draft.craft}
@@ -1827,6 +2027,27 @@ function MakerProfilePage({
             </button>
             {saved && <p role="status">Profile saved to your account.</p>}
           </div>
+          {draft.isPublic && (
+            <div className="profile-share-link">
+              <label htmlFor="profile-share-url">Public profile link</label>
+              <div>
+                <input
+                  id="profile-share-url"
+                  readOnly
+                  value={`${window.location.origin}/@${encodeURIComponent(draft.slug)}`}
+                />
+                <button
+                  className="button button-dark"
+                  type="button"
+                  disabled={draft.slug !== details.slug || !details.isPublic}
+                  onClick={() => onCopyShare(`${window.location.origin}/@${encodeURIComponent(draft.slug)}`)}
+                >
+                  Copy link
+                </button>
+              </div>
+              {!details.isPublic && <small>Save your profile as public before sharing this link.</small>}
+            </div>
+          )}
         </form>
         <aside className="maker-profile-preview">
           <p className="section-label">Customer preview</p>
@@ -1849,8 +2070,8 @@ function MakerSettingsPage({
 }: {
   accountName: string
   email: string
-  details: { craft: string; location: string; bio: string; isPublic: boolean }
-  onSave: (details: { craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
+  details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }
+  onSave: (details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
   onNavigate: (view: View) => void
 }) {
   const [isPublic, setIsPublic] = useState(details.isPublic)

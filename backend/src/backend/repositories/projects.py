@@ -42,6 +42,25 @@ def get_project(
     return rows[0] if rows else None
 
 
+def get_project_by_slug(
+    client: Client,
+    owner_profile_id: str,
+    slug: str,
+) -> Mapping[str, Any] | None:
+    result = (
+        client.table("projects")
+        .select("*")
+        .eq("owner_profile_id", owner_profile_id)
+        .eq("slug", slug)
+        .eq("visibility", "public")
+        .eq("publication_status", "published")
+        .limit(1)
+        .execute()
+    )
+    rows = _rows(result.data)
+    return rows[0] if rows else None
+
+
 def list_project_updates(
     client: Client,
     project_ids: list[str],
@@ -189,8 +208,21 @@ def publish_project(client: Client, project_id: str) -> Mapping[str, Any] | None
 def get_profile_details(client: Client, profile_id: str) -> Mapping[str, Any] | None:
     result = (
         client.table("profiles")
-        .select("id,display_name,profile_type,primary_craft,city,bio,is_public")
+        .select("id,slug,display_name,profile_type,primary_craft,city,bio,is_public")
         .eq("id", profile_id)
+        .limit(1)
+        .execute()
+    )
+    rows = _rows(result.data)
+    return rows[0] if rows else None
+
+
+def get_public_profile_by_slug(client: Client, slug: str) -> Mapping[str, Any] | None:
+    result = (
+        client.table("profiles")
+        .select("id,slug,display_name,profile_type,primary_craft,city,bio,is_public")
+        .eq("slug", slug)
+        .eq("is_public", True)
         .limit(1)
         .execute()
     )
@@ -206,7 +238,7 @@ def get_profiles_details(
         return []
     result = (
         client.table("profiles")
-        .select("id,display_name,profile_type,primary_craft,city,bio,is_public")
+        .select("id,slug,display_name,profile_type,primary_craft,city,bio,is_public")
         .in_("id", profile_ids)
         .execute()
     )
@@ -222,7 +254,7 @@ def update_profile(
         client.table("profiles")
         .update(dict(values))
         .eq("id", profile_id)
-        .select("id,display_name,profile_type,primary_craft,city,bio,is_public")
+        .select("id,slug,display_name,profile_type,primary_craft,city,bio,is_public")
         .limit(1)
         .execute()
     )

@@ -7,26 +7,26 @@ status: approved
 
 ## How This Works, In Plain Language
 
-The React app is the part people open in a browser. Public discovery currently uses sample artisans and projects. Account screens call the FastAPI auth endpoints, and signed-in makers see a project dashboard where each project opens into its own overview, progress log, and media space. Project records and selected media are still browser-session previews; they are not yet saved to the database or object storage.
+The React app is the part people open in a browser. The landing page uses sample artisans and projects; authenticated project management calls the FastAPI API. Makers can manage projects, add dated progress updates, upload media, and control project visibility and publishing through those APIs. Published public profiles and projects also have shareable routes. Durable use depends on the matching migrations being applied to the connected Supabase project and its storage being configured.
 
-The full PRD P0 remains the MVP; this is a staged build, not a claim that the preview implements project persistence, privacy enforcement, synchronization, or real messaging. Authentication uses Supabase through the API, subject to local configuration. The project-centered screens are designed for a maker to own multiple distinct projects.
+The full PRD P0 remains the MVP and is being delivered in stages. Authentication, project and media APIs, and project visibility controls are implemented; AI-assisted writing, offline synchronization, and real-time messaging are not yet complete. Authentication and persistence require the corresponding Supabase configuration and deployed database migrations. The project-centered screens are designed for a maker to own multiple distinct projects.
 
 ## The Core Journey Through the System
 
 1. A visitor lands on the responsive Decraft page, reads the product story and its how-it-works section, views a few featured projects, then signs in or creates an account to enter the application.
 2. A maker signs in and sees a dashboard of their projects; creating another project does not replace existing work.
-3. Each project opens at its own route with a distinct overview, progress history, and media section. The maker can add a description, stage, and local photo/video previews.
-4. The app displays a review step before changing the local preview's publication status. Real project persistence and visibility enforcement remain backend work.
-5. Signed-in users can browse the in-app project directory, maker profiles, and project details. Inquiry UI is a preview; real conversations, abuse checks, notifications, and public access controls need their API stages.
-6. Later stages connect projects, uploads, access control, AI, discovery, messaging, notifications, and offline operations to FastAPI and managed services.
+3. Each project opens at its own route with a distinct overview, progress history, and media section. Updates are grouped by the viewer's local calendar day, with a local time shown for each update. Makers can add dated updates and upload photos or videos through the API.
+4. Makers choose whether a project is private or public, then explicitly publish it. Project and media persistence use the backend and Supabase; the target database migrations and storage configuration must be deployed for those flows to work.
+5. Signed-in users can browse the in-app project directory. Anyone with a share link can open a public maker profile at `/@username` or a published public project at `/@username/project-slug`. Inquiry UI is a preview; real conversations, abuse checks, and notifications remain future work.
+6. Later stages complete AI assistance, messaging, notifications, and offline operations using FastAPI and managed services.
 
 ## Stack
 
 - **Frontend:** [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/docs/), and [Vite](https://vite.dev/guide/), retaining the existing `frontend/app` scaffold as approved by the learner.
-- **Routing:** [React Router](https://reactrouter.com/start/library/installation) for the landing page, authenticated in-app discovery, maker profiles/projects, authentication, maker dashboard, and per-project workspaces.
+- **Routing:** [React Router](https://reactrouter.com/start/library/installation) for the landing page, public share routes, authenticated in-app discovery, maker profiles/projects, authentication, maker dashboard, and per-project workspaces.
 - **Styling:** responsive CSS in the existing app; add a shared token layer and reusable components as the design direction is settled.
-- **Backend:** Python + [FastAPI](https://fastapi.tiangolo.com/); Supabase Auth routes are implemented for signup, login, session validation/refresh, and logout.
-- **Persistence and services:** [PostgreSQL](https://www.postgresql.org/docs/) and [Supabase](https://supabase.com/docs) are planned for project data; private object storage is needed for media, and an AI provider must be selected before AI description drafting is implemented. Project APIs and those integrations remain outstanding.
+- **Backend:** Python 3.11+ + [FastAPI](https://fastapi.tiangolo.com/); Supabase Auth routes are implemented for signup, login, session validation/refresh, and logout.
+- **Persistence and services:** [PostgreSQL](https://www.postgresql.org/docs/) and [Supabase](https://supabase.com/docs) back the project APIs and private media storage. The migrations are in `backend/supabase/migrations/` and must be applied to the target Supabase project. An AI provider must be selected before AI description drafting is implemented.
 - **First-slice sample data:** TypeScript fixtures and browser-only prototype state. It must be identified as sample/simulated behavior and must not be used for real private or client data.
 
 ## Where It Runs and How Someone Tries It
@@ -36,11 +36,13 @@ The full PRD P0 remains the MVP; this is a staged build, not a claim that the pr
 - Build check: `npm run build`.
 - Lint check: `npm run lint`.
 - Run the backend from `backend` as described in its README and configure Supabase before testing signup or login; frontend Vite proxies `/api` to `127.0.0.1:8000`.
-- Public sample browsing and the landing pages do not require Supabase. Account and project-workspace access require the API; project data currently resets with the browser session.
+- Production frontend: `https://decraft.vercel.app`. Production API: `https://decraft.onrender.com`. The frontend defaults to this API in production; Render must allow the exact Vercel origin and use secure `SameSite=None` auth cookies.
+- Direct public share routes are served through the Vercel SPA rewrite. The share-slug migration has been prepared but its application to the production Supabase project is not verified.
+- Public sample browsing and the landing pages do not require Supabase. Account, project, and public share-route data use the API and Supabase.
 
 ## Look and Feel
 
-The landing page is a product pitch, not a generic SaaS hero: it tells the story from scattered work examples, through a how-it-works section on the same page, and includes a small featured-work preview. Discovery, maker profiles, and project details live inside the signed-in application under `/app`; visitors must authenticate before entering them. Signed-in navigation keeps Find work available alongside the maker's projects. The workspace is project-centered: multiple project records per account, each with a distinct home and history. The project-folio direction is selected, and all pages must work on mobile and larger screens.
+The landing page is a product pitch, not a generic SaaS hero: it tells the story from scattered work examples, through a how-it-works section on the same page, and includes a small featured-work preview. Discovery and project management require an account; published public profile and project share pages do not. Signed-in navigation keeps Find work available alongside the maker's projects. The workspace is project-centered: multiple project records per account, each with a distinct home and history. The project-folio direction is selected, and all pages must work on mobile and larger screens.
 
 ## Components
 
@@ -61,7 +63,7 @@ Implements `prd.md > Projects, timelines, and media`.
 
 ### Media management
 
-Selects photo and video files for project previews. Upload processing and private storage are not yet connected.
+Uploads photos and videos through the backend to private Supabase storage, then serves visible media through signed URLs.
 Implements `prd.md > Projects, timelines, and media` and `prd.md > Visibility and client access`.
 
 ### AI review and publishing
@@ -101,28 +103,27 @@ The interface-facing records follow the source PRD:
 - **Inquiry/conversation/message:** participants, related profile or project, message text, and timestamps.
 - **Notification/report/block:** recipient or actors, target, state, and timestamps.
 
-Public sample records live in `src/data/`. Authenticated project records and media selections are held only in browser memory for the current preview session; they disappear on reload and are not a secure storage mechanism. Do not use this preview for sensitive real project data. Durable project data belongs in the server database and media bytes in private object storage. Offline draft storage and synchronization remain later, explicit features.
+Landing-page sample records live in `frontend/app/src/data/`. Authenticated project records and progress updates are managed by the FastAPI API and stored in Supabase; uploaded media is stored in private object storage and served through signed URLs. Confirm that the project migrations and storage configuration are deployed before relying on persistence in an environment. Offline draft storage and synchronization remain later, explicit features.
 
 ## File Structure
 
 ```text
-frontend/
-├── PRODUCT.md
-├── devpost/                       # Approved product plan and build tracking
-├── .github/skills/impeccable/     # Installed Impeccable skill
-└── app/
-    ├── package.json
-    ├── index.html
-    └── src/
-        ├── main.tsx               # App entry
-        ├── App.tsx                # Route setup
-        ├── pages/                 # Landing, discovery, public profiles, projects, workspace
-        ├── components/            # Shared navigation, media, project, and form UI
-        ├── data/                  # Clearly labeled sample fixtures
-        ├── services/              # Data-access interface; sample implementation first, API later
-        ├── types/                 # Profile, project, media, and conversation shapes
-        ├── styles/                # Responsive tokens and shared styles
-        └── assets/                # App-owned static imagery and icons
+decraft/
+├── PRD.md                         # Product requirements source of truth
+├── SOLUTION_APPROACH.md           # Technical approach
+├── devpost/                       # Planning and build-learning workspace
+│   ├── learner-profile.md
+│   ├── scope.md
+│   ├── prd.md
+│   └── spec.md
+├── backend/
+│   ├── src/backend/               # FastAPI application
+│   ├── supabase/migrations/       # Database schema and functions
+│   └── tests/
+└── frontend/
+    ├── PRODUCT.md
+    ├── skills-lock.json
+    └── app/                       # React + TypeScript + Vite application
 ```
 
 The file structure is a target for staged work; create only files needed by each approved slice.
@@ -135,20 +136,21 @@ The file structure is a target for staged work; create only files needed by each
 - React Router for public and protected route structure.
 - Vite proxies `/api` requests to the local FastAPI service.
 - Auth UI uses the FastAPI `/api/v1/auth` endpoints; local Supabase configuration is required for a real signup/login flow.
-- Public discovery uses sample data; project forms support local photo/video previews but do not upload files.
+- The landing page uses sample data; authenticated discovery and project screens use the backend API.
+- Project media uploads require a reachable backend, configured Supabase storage, and the database migrations deployed to that Supabase project.
 
 ### Later full MVP stages
 
-- FastAPI REST API, following the endpoint patterns in `SOLUTION_APPROACH.md`.
-- Supabase Auth and PostgreSQL/Supabase-hosted database, as proposed in the solution approach.
-- Private object storage for media.
+- Complete the FastAPI REST API for the remaining P0 features, following `SOLUTION_APPROACH.md`.
+- Supabase Auth and PostgreSQL/Supabase-hosted database, with project and media persistence already implemented.
+- Private object storage for media, with signed URLs for allowed viewers.
 - Background processing for AI/media work only when required by measured task latency.
 - Provider-independent AI integration; provider, keys, limits, and cost must be resolved before that stage.
-- API and external-service contracts must be documented with actual endpoints and configured limits before integration; none are currently implemented in the backend.
+- API and external-service contracts for the remaining P0 features must be documented before integration.
 
 ## Important Failure Modes
 
-- **API not available during frontend work** → the approved first slice uses labeled fixtures; it must not report sample actions as persisted or securely published.
+- **API not available** → show a clear request error; never report sample actions as persisted or securely published.
 - **AI or upload processing fails in later stages** → preserve the artisan's manual workflow and show a clear retry/error state; AI is never required to create or publish a project.
 - **Connectivity is interrupted in later stages** → retain a draft, show whether it is local or synchronized, and never publish on synchronization alone.
 - **An unauthorized user requests private media or client-only work** → the backend denies access, including direct media requests; frontend hiding is not a security boundary.
@@ -156,7 +158,7 @@ The file structure is a target for staged work; create only files needed by each
 ## What Was Simplified and Why
 
 - **Public sample data remains separate from account projects** — sample profiles are not presented as user-owned or independently verified.
-- **Project edits remain in-memory previews** until project APIs and storage are implemented; the UI must not suggest those edits are durable or publicly accessible.
+- **Schema or storage deployment is missing** → project or upload requests can fail even when the frontend and backend are running; verify Supabase migrations and bucket configuration before treating the feature as production-ready.
 - **No live AI, realtime messaging, or offline sync yet** — each depends on services not implemented and will be built in later, separately verified stages.
 
 ## Decisions and Open Issues
@@ -167,6 +169,8 @@ The file structure is a target for staged work; create only files needed by each
 - **Learner choice:** keep How it works as a section of the landing page, not a separate page; use capitalized Decraft wordmark.
 - **Learner choice:** one maker can own multiple projects, with a dedicated space for each; take structural inspiration from GitHub without copying code-specific UI.
 - **Impeccable direction:** project folio.
-- **Open:** choose the AI provider and implement real media/project persistence before enabling AI or upload actions.
+- **Open:** choose and integrate an AI provider; complete messaging, notifications, and offline synchronization.
+- **Deployment check:** apply and verify the project/share-link migrations and storage bucket configuration on each target Supabase environment. The Supabase MCP and CLI were unavailable in the current workspace session, so no remote migration execution is confirmed.
+- **Deployment check:** verify `https://decraft.onrender.com/health`; the previous request timed out, so API availability remains unconfirmed.
 - **Useful learner uncertainty:** none has been identified yet; no unfamiliar technical concept was raised during this planning conversation.
 - **Open:** confirm the React Router dependency and any external image assets during the first implementation slice; do not assume external APIs or credentials.

@@ -21,8 +21,10 @@ The Python SDK is used for runtime Auth and PostgREST interactions. Database tab
 1. Copy `.env.example` to `.env`.
 2. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the Supabase project. Backend settings load `backend/.env` using its absolute project path, independent of the directory used to launch the service; environment variables set by the host take precedence.
 3. Keep Supabase Auth's `mailer_autoconfirm` option set to `true` while developing. This turns email verification off, avoids confirmation email rate limits, and lets signup return a session.
-4. Apply the ordered migrations in `supabase/migrations/` with the Supabase CLI (`supabase db push`). The first creates one profile per Auth user; the second adds project, media, discovery, and collaboration tables, RLS policies, and the private `project-media` bucket.
-5. For local development, leave `AUTH_COOKIE_SECURE=false` and `AUTH_COOKIE_SAMESITE=lax`. For a production same-origin reverse proxy, set `AUTH_COOKIE_SECURE=true`, keep `AUTH_COOKIE_SAMESITE=lax`, and leave `VITE_API_BASE_URL` empty. If the frontend and API use different sites, set `VITE_API_BASE_URL` to the API origin, add the exact frontend origin to `FRONTEND_ORIGINS`, and set `AUTH_COOKIE_SECURE=true` and `AUTH_COOKIE_SAMESITE=none`.
+4. Apply the ordered migrations in `supabase/migrations/` with the Supabase CLI (`supabase db push`). They create profiles, project/media and discovery tables, RLS policies, the private `project-media` bucket, and public share slugs.
+5. For local development, use `AUTH_COOKIE_SECURE=false` and `AUTH_COOKIE_SAMESITE=lax`. For production on Vercel and Render, configure the Render environment with `FRONTEND_ORIGINS=https://decraft.vercel.app`, `AUTH_COOKIE_SECURE=true`, and `AUTH_COOKIE_SAMESITE=none`. The frontend production build defaults to `https://decraft.onrender.com`; set `VITE_API_BASE_URL` in Vercel only if the API is hosted elsewhere. The production domains are cross-site, so credentialed CORS and secure `SameSite=None` cookies are required.
+
+The backend supports Python 3.11 and newer. Render should use Python 3.11, matching `.python-version`.
 
 ## Run
 
@@ -33,7 +35,9 @@ uv sync
 uv run backend
 ```
 
-The API listens on `http://127.0.0.1:8000`; `/health` is a public health check. To run through Uvicorn directly, use `uv run uvicorn main:app --host 127.0.0.1 --port 8000` from this directory. The frontend Vite server proxies `/api` to this service by default. Set `VITE_API_PROXY_TARGET` in `frontend/app/.env.local` if the local API listens elsewhere. In production, provide Supabase settings through the host environment and either proxy `/api` to FastAPI from the frontend origin or set the frontend build variable `VITE_API_BASE_URL` to the separate API origin.
+The API listens on `http://127.0.0.1:8000`; `/health` is a public health check. To run through Uvicorn directly, use `uv run uvicorn main:app --host 127.0.0.1 --port 8000` from this directory. The frontend Vite server proxies `/api` to this service by default. Set `VITE_API_PROXY_TARGET` in `frontend/app/.env.local` if the local API listens elsewhere. The Vercel SPA rewrite supports direct profile and project share URLs. Before relying on production, apply all migrations in `supabase/migrations/` to the intended Supabase project and verify the Render health endpoint and storage configuration.
+
+Public share routes are `/@{profile-username}` and `/@{profile-username}/{project-slug}`. Public lookups return only public profiles and published public projects.
 
 ## Auth endpoints
 

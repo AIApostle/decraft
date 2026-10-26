@@ -56,6 +56,12 @@ class ProjectPatchRequest(BaseModel):
 class ProfilePatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    slug: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=40,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
     primary_craft: str | None = Field(default=None, max_length=80)
     city: str | None = Field(default=None, max_length=100)
     bio: str | None = Field(default=None, max_length=600)
@@ -69,6 +75,7 @@ class ProfilePatchRequest(BaseModel):
 
 class ProfileResponse(BaseModel):
     id: str
+    slug: str
     display_name: str
     profile_type: str
     primary_craft: str | None = None
@@ -103,7 +110,10 @@ class ProjectUpdateResponse(BaseModel):
 
 class ProjectResponse(BaseModel):
     id: str
+    slug: str
     owner_profile_id: str
+    owner_profile_slug: str | None = None
+    owner_profile_public: bool = False
     owner_name: str | None = None
     owner_primary_craft: str | None = None
     owner_city: str | None = None
@@ -119,6 +129,17 @@ class ProjectResponse(BaseModel):
     published_at: str | None = None
     media_assets: list[MediaAssetResponse]
     updates: list[ProjectUpdateResponse]
+
+
+class PublicProfileResponse(BaseModel):
+    id: str
+    slug: str
+    display_name: str
+    profile_type: str
+    primary_craft: str | None = None
+    city: str | None = None
+    bio: str | None = None
+    projects: list[ProjectResponse]
 
 
 class MediaSignRequest(BaseModel):

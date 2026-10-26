@@ -21,6 +21,8 @@ from backend.repositories.projects import (
     get_media_asset,
     get_project,
     get_profile_details,
+    get_project_by_slug,
+    get_public_profile_by_slug,
     get_profiles_details,
     insert_media_asset,
     insert_project,
@@ -38,6 +40,7 @@ from backend.schemas.projects import (
     ProjectCreateRequest,
     ProjectPatchRequest,
     ProjectResponse,
+    PublicProfileResponse,
     ProjectUpdateRequest,
     ProjectUpdateResponse,
 )
@@ -135,7 +138,10 @@ def _rows_for_projects(
         serialized.append(
             ProjectResponse(
                 id=project_id,
+                slug=str(project["slug"]),
                 owner_profile_id=str(project["owner_profile_id"]),
+                owner_profile_slug=owner.get("slug"),
+                owner_profile_public=bool(owner.get("is_public", False)),
                 owner_name=owner.get("display_name"),
                 owner_primary_craft=owner.get("primary_craft"),
                 owner_city=owner.get("city"),
@@ -203,6 +209,98 @@ def _map_database_failure(operation: str) -> NoReturn:
     ) from None
 
 
+@router.get("/share/{profile_slug}", response_model=PublicProfileResponse)
+def read_public_profile(
+    profile_slug: str,
+    client: Client = Depends(get_supabase_client),
+    settings: Settings = Depends(get_settings),
+) -> PublicProfileResponse:
+    try:
+        profile = get_public_profile_by_slug(client, profile_slug)
+        if profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This public profile could not be found.",
+            )
+        project_rows = list_projects(
+            client,
+            owner_profile_id=str(profile["id"]),
+            public_only=True,
+        )
+        projects = _serialize_projects(
+            client,
+            settings,
+            [dict(row) for row in project_rows],
+            public_only=True,
+        )
+        return PublicProfileResponse(
+            id=str(profile["id"]),
+            slug=str(profile["slug"]),
+            display_name=str(profile["display_name"]),
+            profile_type=str(profile["profile_type"]),
+            primary_craft=profile.get("primary_craft"),
+            city=profile.get("city"),
+            bio=profile.get("bio"),
+            projects=projects,
+        )
+    except HTTPException:
+        raise
+    except (
+        APIError,
+        httpx.HTTPError,
+        StorageApiError,
+        MediaSigningError,
+        MediaStorageConfigurationError,
+    ):
+        logger.exception("Public profile lookup failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't load this profile right now. Try again.",
+        ) from None
+
+
+@router.get("/share/{profile_slug}/{project_slug}", response_model=ProjectResponse)
+def read_public_project(
+    profile_slug: str,
+    project_slug: str,
+    client: Client = Depends(get_supabase_client),
+    settings: Settings = Depends(get_settings),
+) -> ProjectResponse:
+    try:
+        profile = get_public_profile_by_slug(client, profile_slug)
+        if profile is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This public project could not be found.",
+            )
+        project = get_project_by_slug(client, str(profile["id"]), project_slug)
+        if project is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This public project could not be found.",
+            )
+        return _serialize_projects(
+            client,
+            settings,
+            [dict(project)],
+            public_only=True,
+        )[0]
+    except HTTPException:
+        raise
+    except (
+        APIError,
+        httpx.HTTPError,
+        StorageApiError,
+        MediaSigningError,
+        MediaStorageConfigurationError,
+    ):
+        logger.exception("Public project lookup failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't load this project right now. Try again.",
+        ) from None
+
+
 @router.get("/discover", response_model=list[ProjectResponse])
 def discover_projects(
     user: object = Depends(get_current_user),
@@ -250,9 +348,13 @@ def create_project_route(
     settings: Settings = Depends(get_settings),
 ) -> ProjectResponse:
     try:
+        project_id = uuid4()
+        slug_base = re.sub(r"[^a-z0-9]+", "-", payload.title.lower()).strip("-")[:80] or "project"
         created = insert_project(
             client,
             {
+                "id": str(project_id),
+                "slug": f"{slug_base}-{project_id.hex}",
                 "owner_profile_id": _user_id(user),
                 "title": payload.title,
                 "description": payload.description,

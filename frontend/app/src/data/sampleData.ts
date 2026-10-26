@@ -28,6 +28,8 @@ export interface ProjectUpdate {
 export interface Project {
   id: string
   makerId: string
+  slug?: string
+  ownerProfileSlug?: string
   title: string
   category: string
   location: string

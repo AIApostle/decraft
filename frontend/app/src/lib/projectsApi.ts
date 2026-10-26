@@ -1,5 +1,5 @@
 import { DetailedError, Upload } from 'tus-js-client'
-import type { Maker, Project, ProjectMedia, ProjectStage, ProjectUpdate } from '../data/sampleData'
+import type { ContactOptions, Maker, Project, ProjectMedia, ProjectStage, ProjectUpdate } from '../data/sampleData'
 import { apiRequest, ApiError } from './authApi'
 
 type ApiStage = 'planned' | 'in_progress' | 'completed'
@@ -45,6 +45,8 @@ interface ApiProject {
   location_label: string | null
   stage: ApiStage
   visibility: ApiVisibility
+  include_contact: boolean
+  contact_options: ApiContactOptions | null
   publication_status: string
   created_at: string
   published_at: string | null
@@ -71,6 +73,16 @@ interface ApiProfile {
   city: string | null
   bio: string | null
   is_public: boolean
+  contact_email: string | null
+  contact_phone: string | null
+  contact_whatsapp: string | null
+  show_contact_on_profile: boolean
+}
+
+interface ApiContactOptions {
+  email: string | null
+  phone: string | null
+  whatsapp: string | null
 }
 
 export interface PublicMakerProfile {
@@ -135,6 +147,12 @@ export function mapProject(project: ApiProject): Project {
     status: project.publication_status === 'published' ? 'published' : 'draft',
     stage: fromApiStage(project.stage),
     visibility: project.visibility,
+    includeContact: project.include_contact,
+    contactOptions: project.contact_options ? {
+      email: project.contact_options.email ?? undefined,
+      phone: project.contact_options.phone ?? undefined,
+      whatsapp: project.contact_options.whatsapp ?? undefined,
+    } : undefined,
     attachments,
     milestones: [],
     updates: project.updates.map(mapUpdate),
@@ -160,6 +178,7 @@ export async function getPublicProfile(profileSlug: string): Promise<PublicMaker
     city: string | null
     bio: string | null
     avatar_url: string | null
+    contact_options: ApiContactOptions | null
     projects: ApiProject[]
   }>(`/api/v1/projects/share/${encodeURIComponent(profileSlug)}`)
   const name = response.display_name
@@ -171,10 +190,19 @@ export async function getPublicProfile(profileSlug: string): Promise<PublicMaker
       craft: response.primary_craft ?? 'Maker',
       location: response.city ?? '',
       bio: response.bio ?? '',
+      contactOptions: response.contact_options ? mapContactOptions(response.contact_options) : undefined,
       initials: name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toLocaleUpperCase(),
       avatarUrl: response.avatar_url ?? undefined,
     },
     projects: response.projects.map(mapProject),
+  }
+}
+
+function mapContactOptions(contacts: ApiContactOptions): ContactOptions {
+  return {
+    email: contacts.email ?? undefined,
+    phone: contacts.phone ?? undefined,
+    whatsapp: contacts.whatsapp ?? undefined,
   }
 }
 
@@ -195,6 +223,7 @@ export async function createProject(input: {
   location_label: string | null
   stage: ProjectStage
   visibility: 'private' | 'public'
+  include_contact: boolean
 }): Promise<Project> {
   const response = await apiRequest<ApiProject>('/api/v1/projects', {
     method: 'POST',
@@ -212,6 +241,7 @@ export async function updateProject(
     location_label: string | null
     stage: ProjectStage
     visibility: 'private' | 'public'
+    include_contact: boolean
   }>,
 ): Promise<Project> {
   const body = {
@@ -364,7 +394,7 @@ export async function uploadProfileAvatar(file: File): Promise<ApiProfile> {
 }
 
 export function updateProfileSettings(
-  values: Partial<Pick<ApiProfile, 'slug' | 'primary_craft' | 'city' | 'bio' | 'is_public'>>,
+  values: Partial<Pick<ApiProfile, 'slug' | 'primary_craft' | 'city' | 'bio' | 'is_public' | 'contact_email' | 'contact_phone' | 'contact_whatsapp' | 'show_contact_on_profile'>>,
 ): Promise<ApiProfile> {
   return apiRequest<ApiProfile>('/api/v1/profile', {
     method: 'PATCH',

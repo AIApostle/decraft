@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -13,6 +14,7 @@ class ProjectCreateRequest(BaseModel):
     location_label: str | None = Field(default=None, max_length=100)
     stage: ProjectStage = "planned"
     visibility: Literal["private", "public"] = "private"
+    include_contact: bool = False
 
     @field_validator("title", "description", "category")
     @classmethod
@@ -51,6 +53,7 @@ class ProjectPatchRequest(BaseModel):
     location_label: str | None = Field(default=None, max_length=100)
     stage: ProjectStage | None = None
     visibility: ProjectVisibility | None = None
+    include_contact: bool | None = None
 
 
 class ProfilePatchRequest(BaseModel):
@@ -66,11 +69,28 @@ class ProfilePatchRequest(BaseModel):
     city: str | None = Field(default=None, max_length=100)
     bio: str | None = Field(default=None, max_length=600)
     is_public: bool | None = None
+    contact_email: str | None = Field(default=None, max_length=254)
+    contact_phone: str | None = Field(default=None, max_length=40)
+    contact_whatsapp: str | None = Field(default=None, max_length=40)
+    show_contact_on_profile: bool | None = None
 
-    @field_validator("primary_craft", "city", "bio")
+    @field_validator("primary_craft", "city", "bio", "contact_email", "contact_phone", "contact_whatsapp")
     @classmethod
     def trim_optional_text(cls, value: str | None) -> str | None:
         return value.strip() or None if value is not None else None
+
+    @field_validator("contact_email")
+    @classmethod
+    def validate_contact_email(cls, value: str | None) -> str | None:
+        if value is not None and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+            raise ValueError("Enter a valid contact email address.")
+        return value
+
+
+class ContactOptionsResponse(BaseModel):
+    email: str | None = None
+    phone: str | None = None
+    whatsapp: str | None = None
 
 
 class ProfileResponse(BaseModel):
@@ -83,6 +103,10 @@ class ProfileResponse(BaseModel):
     bio: str | None = None
     is_public: bool
     avatar_url: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    contact_whatsapp: str | None = None
+    show_contact_on_profile: bool = False
 
 
 class MediaAssetResponse(BaseModel):
@@ -125,6 +149,8 @@ class ProjectResponse(BaseModel):
     location_label: str | None = None
     stage: ProjectStage
     visibility: ProjectVisibility
+    include_contact: bool = False
+    contact_options: ContactOptionsResponse | None = None
     publication_status: str
     created_at: str
     published_at: str | None = None
@@ -141,6 +167,7 @@ class PublicProfileResponse(BaseModel):
     city: str | None = None
     bio: str | None = None
     avatar_url: str | None = None
+    contact_options: ContactOptionsResponse | None = None
     projects: list[ProjectResponse]
 
 

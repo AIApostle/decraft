@@ -260,3 +260,55 @@ def update_profile(
     )
     rows = _rows(result.data)
     return rows[0] if rows else None
+
+
+def get_profile_contacts(client: Client, profile_id: str) -> Mapping[str, Any] | None:
+    result = (
+        client.table("profile_contacts")
+        .select("profile_id,email,phone,whatsapp,show_on_profile")
+        .eq("profile_id", profile_id)
+        .limit(1)
+        .execute()
+    )
+    rows = _rows(result.data)
+    return rows[0] if rows else None
+
+
+def get_profiles_contacts(
+    client: Client,
+    profile_ids: list[str],
+) -> list[Mapping[str, Any]]:
+    if not profile_ids:
+        return []
+    result = (
+        client.table("profile_contacts")
+        .select("profile_id,email,phone,whatsapp,show_on_profile")
+        .in_("profile_id", profile_ids)
+        .execute()
+    )
+    return _rows(result.data)
+
+
+def upsert_profile_contacts(
+    client: Client,
+    profile_id: str,
+    values: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    current = get_profile_contacts(client, profile_id) or {}
+    merged = {
+        "profile_id": profile_id,
+        "email": current.get("email"),
+        "phone": current.get("phone"),
+        "whatsapp": current.get("whatsapp"),
+        "show_on_profile": current.get("show_on_profile", False),
+        **values,
+    }
+    result = (
+        client.table("profile_contacts")
+        .upsert(merged, on_conflict="profile_id")
+        .select("profile_id,email,phone,whatsapp,show_on_profile")
+        .limit(1)
+        .execute()
+    )
+    rows = _rows(result.data)
+    return rows[0] if rows else None

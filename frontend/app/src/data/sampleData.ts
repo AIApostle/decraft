@@ -45,7 +45,15 @@ export interface Project {
   status: 'draft' | 'published'
   stage: ProjectStage
   visibility?: 'private' | 'public' | 'client_only'
+  includeContact?: boolean
+  contactOptions?: ContactOptions
   milestones: ProjectMilestone[]
+}
+
+export interface ContactOptions {
+  email?: string
+  phone?: string
+  whatsapp?: string
 }
 
 export interface Maker {
@@ -56,6 +64,7 @@ export interface Maker {
   bio: string
   initials: string
   avatarUrl?: string
+  contactOptions?: ContactOptions
 }
 
 export const SAMPLE_MAKERS: Maker[] = [
@@ -66,6 +75,11 @@ export const SAMPLE_MAKERS: Maker[] = [
     location: 'Yaba, Lagos',
     bio: 'Small-batch tableware made slowly, with a focus on useful forms and quiet glazes.',
     initials: 'AN',
+    contactOptions: {
+      email: 'adaeze@example.test',
+      phone: '+234 800 000 0000',
+      whatsapp: '+234 800 000 0000',
+    },
   },
   {
     id: 'chidi',
@@ -74,6 +88,11 @@ export const SAMPLE_MAKERS: Maker[] = [
     location: 'Surulere, Lagos',
     bio: 'Furniture and workshop pieces built for everyday use, repaired when they can be.',
     initials: 'CO',
+    contactOptions: {
+      email: 'chidi@example.test',
+      phone: '+234 800 000 0000',
+      whatsapp: '+234 800 000 0000',
+    },
   },
   {
     id: 'zainab',
@@ -82,6 +101,11 @@ export const SAMPLE_MAKERS: Maker[] = [
     location: 'Lekki, Lagos',
     bio: 'Furniture restoration and upholstery, keeping good frames in use for longer.',
     initials: 'ZB',
+    contactOptions: {
+      email: 'zainab@example.test',
+      phone: '+234 800 000 0000',
+      whatsapp: '+234 800 000 0000',
+    },
   },
 ]
 
@@ -97,6 +121,8 @@ export const SAMPLE_PROJECTS: Project[] = [
     imageAlt: 'Handmade blue and dark ceramic plates arranged on a wooden shelf',
     status: 'published',
     stage: 'completed',
+    includeContact: true,
+    contactOptions: SAMPLE_MAKERS[0].contactOptions,
     milestones: [
       { label: 'Shapes and clay chosen', stage: 'planned', date: '12 March 2026' },
       { label: 'Pieces thrown and trimmed', stage: 'in-progress', date: '18 March 2026' },
@@ -114,6 +140,8 @@ export const SAMPLE_PROJECTS: Project[] = [
     imageAlt: 'Hand tools arranged in a well-used workshop',
     status: 'published',
     stage: 'in-progress',
+    includeContact: true,
+    contactOptions: SAMPLE_MAKERS[1].contactOptions,
     milestones: [
       { label: 'Measured the work wall', stage: 'planned', date: '4 April 2026' },
       { label: 'Built and fitted the tool rack', stage: 'in-progress', date: '14 April 2026' },
@@ -130,6 +158,8 @@ export const SAMPLE_PROJECTS: Project[] = [
     imageAlt: 'Restored deep-green sofa with clean upholstery and a solid wood frame',
     status: 'published',
     stage: 'completed',
+    includeContact: true,
+    contactOptions: SAMPLE_MAKERS[2].contactOptions,
     milestones: [
       { label: 'Frame assessed with the owner', stage: 'planned', date: '7 February 2026' },
       { label: 'Seat support repaired', stage: 'in-progress', date: '11 February 2026' },

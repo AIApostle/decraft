@@ -1337,7 +1337,7 @@ button:hover .icon-arrow {
 
 .workspace-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.78fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   align-items: start;
   gap: clamp(1.5rem, 5vw, 4rem);
 }
@@ -1346,8 +1346,16 @@ button:hover .icon-arrow {
 .maker-profile-page,
 .project-dashboard,
 .project-space-page {
+  min-width: 0;
   max-width: 88rem;
   margin-inline: auto;
+}
+
+.workspace-layout > *,
+.workspace-preview,
+.project-form {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .preview-mode-notice {
@@ -3176,6 +3184,35 @@ button:hover .icon-arrow {
   gap: 1.2rem;
 }
 
+.profile-contact-fields {
+  display: grid;
+  min-width: 0;
+  gap: 0.9rem;
+  margin: 0;
+  border: 1px solid var(--rule);
+  padding: 1rem;
+}
+
+.profile-contact-fields legend {
+  padding-inline: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.profile-contact-fields > label:not(.profile-public-toggle) {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.profile-contact-fields input {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
 .profile-edit-form h2,
 .maker-profile-preview h2 {
   margin: 0;
@@ -3268,15 +3305,6 @@ button:hover .icon-arrow {
 @media (max-width: 760px) {
   .site-shell {
     padding-top: 3.6rem;
-  }
-
-  .workspace-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.5rem;
-  }
-
-  .workspace-preview {
-    order: 1;
   }
 
   .project-form input,
@@ -3569,6 +3597,33 @@ button:disabled {
   border-top: 1px solid var(--rule);
   padding-top: 1rem;
   line-height: 1.6;
+}
+
+.maker-contact-options {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.maker-contact-options a {
+  color: var(--moss-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+@media (max-width: 960px) {
+  .workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .workspace-preview {
+    order: 1;
+  }
 }
 
 @media (max-width: 700px) {

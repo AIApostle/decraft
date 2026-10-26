@@ -41,6 +41,18 @@ type View =
   | 'signup'
   | 'not-found'
 type AuthStatus = 'loading' | 'signed-out' | 'signed-in' | 'error'
+type ProfileDetails = {
+  slug: string
+  craft: string
+  location: string
+  bio: string
+  isPublic: boolean
+  contactEmail: string
+  contactPhone: string
+  contactWhatsapp: string
+  showContactOnProfile: boolean
+  avatarUrl: string
+}
 
 const currentMaker = SAMPLE_MAKERS[0]
 const craftOptions = [
@@ -119,6 +131,7 @@ function SuggestedChoiceField({
 
 function makerForProject(project: Project): Maker {
   const name = project.ownerName ?? 'Maker'
+  const sampleMaker = SAMPLE_MAKERS.find((maker) => maker.id === project.makerId)
   return {
     id: project.makerId,
     name,
@@ -126,6 +139,7 @@ function makerForProject(project: Project): Maker {
     location: project.ownerLocation ?? project.location,
     bio: project.ownerBio ?? '',
     initials: name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toLocaleUpperCase(),
+    contactOptions: project.contactOptions ?? sampleMaker?.contactOptions,
   }
 }
 
@@ -248,15 +262,20 @@ function App() {
   const [draftDescription, setDraftDescription] = useState('')
   const [draftStage, setDraftStage] = useState<ProjectStage>('planned')
   const [draftVisibility, setDraftVisibility] = useState<'private' | 'public'>('public')
+  const [draftIncludeContact, setDraftIncludeContact] = useState(false)
   const [draftCategory, setDraftCategory] = useState('')
   const [draftLocation, setDraftLocation] = useState('')
   const [draftAttachments, setDraftAttachments] = useState<ProjectMedia[]>([])
-  const [profileDetails, setProfileDetails] = useState({
+  const [profileDetails, setProfileDetails] = useState<ProfileDetails>({
     slug: '',
     craft: '',
     location: '',
     bio: '',
     isPublic: false,
+    contactEmail: '',
+    contactPhone: '',
+    contactWhatsapp: '',
+    showContactOnProfile: false,
     avatarUrl: '',
   })
   const mediaUrls = useRef<string[]>([])
@@ -334,6 +353,10 @@ function App() {
           location: profile.city ?? '',
           bio: profile.bio ?? '',
           isPublic: profile.is_public,
+          contactEmail: profile.contact_email ?? '',
+          contactPhone: profile.contact_phone ?? '',
+          contactWhatsapp: profile.contact_whatsapp ?? '',
+          showContactOnProfile: profile.show_contact_on_profile,
           avatarUrl: profile.avatar_url ?? '',
         })
       })
@@ -424,6 +447,7 @@ function App() {
     location: selectedMakerProject?.ownerLocation ?? '',
     bio: selectedMakerProject?.ownerBio ?? '',
     initials: selectedMakerName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toLocaleUpperCase(),
+    contactOptions: selectedMakerProject?.contactOptions,
   }
   const landingProjects = SAMPLE_PROJECTS.slice(0, 3)
 
@@ -498,6 +522,7 @@ function App() {
             location_label: draftLocation.trim() || null,
             stage: draftStage,
             visibility: draftVisibility,
+            include_contact: draftIncludeContact,
           })
         : await createProject({
             title: draftTitle.trim(),
@@ -506,6 +531,7 @@ function App() {
             location_label: draftLocation.trim() || null,
             stage: draftStage,
             visibility: draftVisibility,
+            include_contact: draftIncludeContact,
           })
       setDraftProjectId(project.id)
       setProjects((current) => [project, ...current.filter((item) => item.id !== project.id)])
@@ -558,6 +584,7 @@ function App() {
     setDraftDescription('')
     setDraftStage('planned')
     setDraftVisibility('public')
+    setDraftIncludeContact(false)
     setDraftCategory('')
     setDraftLocation('')
     setDraftAttachments([])
@@ -604,7 +631,7 @@ function App() {
     }
   }
 
-  async function saveProfile(details: Omit<typeof profileDetails, 'avatarUrl'>) {
+  async function saveProfile(details: Omit<ProfileDetails, 'avatarUrl'>) {
     try {
       const profile = await updateProfileSettings({
         slug: details.slug.trim(),
@@ -612,6 +639,10 @@ function App() {
         city: details.location.trim() || null,
         bio: details.bio.trim() || null,
         is_public: details.isPublic,
+        contact_email: details.contactEmail.trim() || null,
+        contact_phone: details.contactPhone.trim() || null,
+        contact_whatsapp: details.contactWhatsapp.trim() || null,
+        show_contact_on_profile: details.showContactOnProfile,
       })
       const savedDetails = {
         slug: profile.slug,
@@ -619,6 +650,10 @@ function App() {
         location: profile.city ?? '',
         bio: profile.bio ?? '',
         isPublic: profile.is_public,
+        contactEmail: profile.contact_email ?? '',
+        contactPhone: profile.contact_phone ?? '',
+        contactWhatsapp: profile.contact_whatsapp ?? '',
+        showContactOnProfile: profile.show_contact_on_profile,
         avatarUrl: profile.avatar_url ?? '',
       }
       setProfileDetails(savedDetails)
@@ -648,7 +683,7 @@ function App() {
     }
   }
 
-  async function saveProjectSettings(projectId: string, values: Pick<Project, 'title' | 'description' | 'category' | 'location' | 'stage' | 'visibility'>) {
+  async function saveProjectSettings(projectId: string, values: Pick<Project, 'title' | 'description' | 'category' | 'location' | 'stage' | 'visibility' | 'includeContact'>) {
     try {
       const updated = await updateProject(projectId, {
         title: values.title,
@@ -657,6 +692,7 @@ function App() {
         location_label: values.location.trim() || null,
         stage: values.stage,
         visibility: values.visibility === 'public' ? 'public' : 'private',
+        include_contact: values.includeContact,
       })
       setProjects((current) => current.map((project) => project.id === updated.id ? updated : project))
       setDiscoveryProjects((current) => current.map((project) => project.id === updated.id ? updated : project))
@@ -697,7 +733,18 @@ function App() {
       setDiscoveryProjects([])
       setDiscoveryLoaded(false)
       setLoadedProjectsUserId(null)
-      setProfileDetails({ slug: '', craft: '', location: '', bio: '', isPublic: false, avatarUrl: '' })
+      setProfileDetails({
+        slug: '',
+        craft: '',
+        location: '',
+        bio: '',
+        isPublic: false,
+        contactEmail: '',
+        contactPhone: '',
+        contactWhatsapp: '',
+        showContactOnProfile: false,
+        avatarUrl: '',
+      })
       setProfileLoading(true)
       routerNavigate('/')
     } catch (error) {
@@ -918,6 +965,7 @@ function App() {
               description={draftDescription}
               stage={draftStage}
               visibility={draftVisibility}
+              includeContact={draftIncludeContact}
               category={draftCategory}
               location={draftLocation}
               accountName={authUser?.profile.display_name ?? ''}
@@ -926,6 +974,7 @@ function App() {
               onDescriptionChange={setDraftDescription}
               onStageChange={setDraftStage}
               onVisibilityChange={setDraftVisibility}
+              onIncludeContactChange={setDraftIncludeContact}
               onCategoryChange={setDraftCategory}
               onLocationChange={setDraftLocation}
               onAttachmentsChange={setProjectAttachments}
@@ -959,7 +1008,12 @@ function App() {
             }} />
           )}
           {view === 'review' && authStatus === 'signed-in' && selectedProject && authUser && selectedProject.makerId === authUser.id && (
-            <ReviewPage project={selectedProject} onPublish={publishDraft} onNavigate={navigate} />
+            <ReviewPage
+              project={selectedProject}
+              profileIsPublic={profileDetails.isPublic}
+              onPublish={publishDraft}
+              onNavigate={navigate}
+            />
           )}
           {view === 'review' && authStatus === 'signed-in' && (!selectedProject || selectedProject.makerId !== authUser?.id) && (
             <NotFoundPage onNavigate={navigate} />
@@ -1423,6 +1477,7 @@ function PortfolioPage({ maker, projects, onOpenProject, onContactMaker, onBack,
           <h1>{maker.name}</h1>
           <p className="portfolio-meta">{maker.craft} <span>·</span> {maker.location}</p>
           <p className="portfolio-bio">{maker.bio}</p>
+          <ContactOptionsLinks contacts={maker.contactOptions} />
         </div>
         <button className="button button-dark portfolio-contact" type="button" onClick={onContactMaker}>Explore a project <ArrowIcon /></button>
       </div>
@@ -1537,10 +1592,29 @@ function ProjectPage({ project, onNavigate, onBack, backLabel = 'Back to portfol
             <span><strong>{maker.name}</strong><small>{maker.craft} · {maker.location}</small></span>
           </div>
           <p>{maker.bio}</p>
-          <p className="maker-contact-note">Contact options will appear here when this maker enables them.</p>
+          <ContactOptionsLinks contacts={project.contactOptions} />
         </aside>
       </div>
     </section>
+  )
+}
+
+function ContactOptionsLinks({ contacts }: { contacts?: Maker['contactOptions'] }) {
+  if (!contacts || !Object.values(contacts).some(Boolean)) {
+    return <p className="maker-contact-note">Contact details have not been shared.</p>
+  }
+  const phone = contacts.phone?.replace(/[^\d+]/g, '')
+  const whatsapp = contacts.whatsapp?.replace(/\D/g, '')
+  return (
+    <div className="maker-contact-options" aria-label="Maker contact details">
+      {contacts.email && <a href={`mailto:${contacts.email}`}>{contacts.email}</a>}
+      {contacts.phone && phone && <a href={`tel:${phone}`}>{contacts.phone}</a>}
+      {contacts.whatsapp && whatsapp && (
+        <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
+          WhatsApp {contacts.whatsapp}
+        </a>
+      )}
+    </div>
   )
 }
 
@@ -1617,7 +1691,7 @@ interface ProjectSpacePageProps {
   onNavigate: (view: View) => void
   onPublish: () => void
   onAddUpdate: (update: Omit<ProjectUpdate, 'id' | 'createdAt'>) => Promise<void>
-  onSaveSettings: (values: Pick<Project, 'title' | 'description' | 'category' | 'location' | 'stage'> & { visibility: 'private' | 'public' }) => Promise<void>
+  onSaveSettings: (values: Pick<Project, 'title' | 'description' | 'category' | 'location' | 'stage' | 'includeContact'> & { visibility: 'private' | 'public' }) => Promise<void>
   onCreateMedia: (files: File[]) => ProjectMedia[]
   onDiscardMedia: (media: ProjectMedia) => void
   onCopyShare: (url: string) => void
@@ -1649,6 +1723,7 @@ function ProjectSpacePage({
     location: project.location,
     stage: project.stage,
     visibility: project.visibility === 'public' ? 'public' as const : 'private' as const,
+    includeContact: project.includeContact ?? false,
   })
   const [savingSettings, setSavingSettings] = useState(false)
   const [editingProject, setEditingProject] = useState(false)
@@ -1704,10 +1779,14 @@ function ProjectSpacePage({
               : project.visibility === 'public' ? 'Public draft' : 'Private draft'}
           </span>
           {project.status === 'draft' && project.visibility === 'public' && (
-            <button className="button button-dark" type="button" onClick={onPublish}>Publish project <ArrowIcon /></button>
+            profileIsPublic
+              ? <button className="button button-dark" type="button" onClick={onPublish}>Publish project <ArrowIcon /></button>
+              : <button className="button button-dark" type="button" onClick={() => onNavigate('profile')}>Make profile public to publish <ArrowIcon /></button>
           )}
           {project.status === 'published' && project.visibility !== 'public' && (
-            <button className="button button-dark" type="button" onClick={onPublish}>Make project public <ArrowIcon /></button>
+            profileIsPublic
+              ? <button className="button button-dark" type="button" onClick={onPublish}>Make project public <ArrowIcon /></button>
+              : <button className="button button-dark" type="button" onClick={() => onNavigate('profile')}>Make profile public first <ArrowIcon /></button>
           )}
         </div>
       </header>
@@ -1782,6 +1861,25 @@ function ProjectSpacePage({
                   />
                 </label>
               </fieldset>
+              <fieldset className="visibility-fieldset">
+                <legend>Contact details</legend>
+                <label className="visibility-toggle">
+                  <span>
+                    <strong>{projectSettings.includeContact ? 'Include my contact details' : 'Keep contact details private'}</strong>
+                    <small>Share the contact details enabled on your maker profile with customers viewing this project.</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label="Include contact details on this project"
+                    checked={projectSettings.includeContact}
+                    onChange={(event) => setProjectSettings({
+                      ...projectSettings,
+                      includeContact: event.target.checked,
+                    })}
+                  />
+                </label>
+              </fieldset>
               <div className="project-edit-actions">
                 <button className="button button-dark" type="submit" disabled={savingSettings}>
                   {savingSettings ? 'Saving…' : 'Save project details'} <ArrowIcon />
@@ -1794,6 +1892,7 @@ function ProjectSpacePage({
                     location: project.location,
                     stage: project.stage,
                     visibility: project.visibility === 'public' ? 'public' : 'private',
+                    includeContact: project.includeContact ?? false,
                   })
                   setEditingProject(false)
                 }}>Cancel</button>
@@ -2072,8 +2171,8 @@ function MakerProfilePage({
   accountName: string
   email: string
   profileType: AuthUser['profile']['profile_type']
-  details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean; avatarUrl: string }
-  onSave: (details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
+  details: ProfileDetails
+  onSave: (details: Omit<ProfileDetails, 'avatarUrl'>) => Promise<void>
   onUploadAvatar: (file: File) => Promise<string | null>
   onNavigate: (view: View) => void
   onCopyShare: (url: string) => void
@@ -2186,6 +2285,47 @@ function MakerProfilePage({
               placeholder="What do you make or repair? What should a customer know before getting in touch?"
             />
           </label>
+          <fieldset className="profile-contact-fields">
+            <legend>Contact details</legend>
+            <label>Email for customers
+              <input
+                type="email"
+                value={draft.contactEmail}
+                maxLength={254}
+                onChange={(event) => { setDraft({ ...draft, contactEmail: event.target.value }); setSaved(false) }}
+                placeholder="hello@example.com"
+              />
+            </label>
+            <label>Phone
+              <input
+                type="tel"
+                value={draft.contactPhone}
+                maxLength={40}
+                onChange={(event) => { setDraft({ ...draft, contactPhone: event.target.value }); setSaved(false) }}
+                placeholder="+234 800 000 0000"
+              />
+            </label>
+            <label>WhatsApp
+              <input
+                type="tel"
+                value={draft.contactWhatsapp}
+                maxLength={40}
+                onChange={(event) => { setDraft({ ...draft, contactWhatsapp: event.target.value }); setSaved(false) }}
+                placeholder="+234 800 000 0000"
+              />
+            </label>
+            <label className="profile-public-toggle">
+              <input
+                type="checkbox"
+                checked={draft.showContactOnProfile}
+                onChange={(event) => { setDraft({ ...draft, showContactOnProfile: event.target.checked }); setSaved(false) }}
+              />
+              <span>
+                <strong>Show contact details on my profile</strong>
+                <small>Only displayed when your maker profile is public. Project contact sharing is controlled separately.</small>
+              </span>
+            </label>
+          </fieldset>
           <label className="profile-public-toggle">
             <input
               type="checkbox"
@@ -2246,8 +2386,8 @@ function MakerSettingsPage({
 }: {
   accountName: string
   email: string
-  details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }
-  onSave: (details: { slug: string; craft: string; location: string; bio: string; isPublic: boolean }) => Promise<void>
+  details: ProfileDetails
+  onSave: (details: Omit<ProfileDetails, 'avatarUrl'>) => Promise<void>
   onNavigate: (view: View) => void
 }) {
   const [isPublic, setIsPublic] = useState(details.isPublic)
@@ -2304,6 +2444,7 @@ interface WorkspacePageProps {
   description: string
   stage: ProjectStage
   visibility: 'private' | 'public'
+  includeContact: boolean
   category: string
   location: string
   accountName: string
@@ -2312,6 +2453,7 @@ interface WorkspacePageProps {
   onDescriptionChange: (value: string) => void
   onStageChange: (value: ProjectStage) => void
   onVisibilityChange: (value: 'private' | 'public') => void
+  onIncludeContactChange: (value: boolean) => void
   onCategoryChange: (value: string) => void
   onLocationChange: (value: string) => void
   onAttachmentsChange: (files: File[]) => void
@@ -2327,6 +2469,7 @@ function WorkspacePage({
   description,
   stage,
   visibility,
+  includeContact,
   category,
   location,
   accountName,
@@ -2335,6 +2478,7 @@ function WorkspacePage({
   onDescriptionChange,
   onStageChange,
   onVisibilityChange,
+  onIncludeContactChange,
   onCategoryChange,
   onLocationChange,
   onAttachmentsChange,
@@ -2414,6 +2558,22 @@ function WorkspacePage({
               />
             </label>
           </fieldset>
+          <fieldset className="visibility-fieldset">
+            <legend>Contact details</legend>
+            <label className="visibility-toggle">
+              <span>
+                <strong>{includeContact ? 'Include my contact details' : 'Keep contact details private'}</strong>
+                <small>Share the contact details enabled on your maker profile with customers viewing this project.</small>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Include contact details on this project"
+                checked={includeContact}
+                onChange={(event) => onIncludeContactChange(event.target.checked)}
+              />
+            </label>
+          </fieldset>
           <MediaPicker
             files={attachments}
             onAddFiles={onAttachmentsChange}
@@ -2445,19 +2605,23 @@ function WorkspacePage({
 
 interface ReviewPageProps {
   project: Project
+  profileIsPublic: boolean
   onPublish: () => void
   onNavigate: (view: View) => void
 }
 
-function ReviewPage({ project, onPublish, onNavigate }: ReviewPageProps) {
+function ReviewPage({ project, profileIsPublic, onPublish, onNavigate }: ReviewPageProps) {
   return (
     <section className="page-section review-page">
       <button className="back-link" type="button" onClick={() => onNavigate('project-space')}><ArrowIcon /> Back to project</button>
       <div className="review-heading">
         <h1>Does this look ready?</h1>
         <p>Check the details and media before publishing your project.</p>
-        {project.status === 'draft' && project.visibility === 'public' && (
+        {project.status === 'draft' && project.visibility === 'public' && profileIsPublic && (
           <button className="button button-dark" type="button" onClick={onPublish}>Publish project <ArrowIcon /></button>
+        )}
+        {project.status === 'draft' && project.visibility === 'public' && !profileIsPublic && (
+          <button className="button button-dark" type="button" onClick={() => onNavigate('profile')}>Make profile public to publish <ArrowIcon /></button>
         )}
         {project.status === 'draft' && project.visibility !== 'public' && (
           <p className="form-note">This project is a private draft. Choose “Public when published” in project settings before publishing.</p>

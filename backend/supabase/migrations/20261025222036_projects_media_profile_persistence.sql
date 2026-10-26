@@ -1,25 +1,35 @@
 alter table public.profiles
-  add column primary_craft text;
+  add column if not exists primary_craft text;
+
+alter table public.profiles
+  drop constraint if exists profiles_primary_craft_length;
 
 alter table public.profiles
   add constraint profiles_primary_craft_length
   check (primary_craft is null or char_length(primary_craft) between 1 and 80);
 
 alter table public.projects
-  add column category_label text;
+  add column if not exists category_label text;
+
+alter table public.projects
+  drop constraint if exists projects_category_label_length;
 
 alter table public.projects
   add constraint projects_category_label_length
   check (category_label is null or char_length(category_label) between 1 and 80);
 
 alter table public.project_updates
-  add column title text not null default 'Progress update',
-  add column stage text not null default 'planned';
+  add column if not exists title text not null default 'Progress update',
+  add column if not exists stage text not null default 'planned';
 
 update public.project_updates updates
 set stage = projects.stage
 from public.projects
 where projects.id = updates.project_id;
+
+alter table public.project_updates
+  drop constraint if exists project_updates_title_length,
+  drop constraint if exists project_updates_stage_check;
 
 alter table public.project_updates
   add constraint project_updates_title_length

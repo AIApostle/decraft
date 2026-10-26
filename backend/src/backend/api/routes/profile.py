@@ -10,7 +10,12 @@ from supabase import Client
 from backend.api.dependencies.current_user import get_current_user
 from backend.api.dependencies.supabase import get_settings, get_supabase_client
 from backend.core.config import Settings
-from backend.repositories.projects import get_profile_details, update_profile
+from backend.repositories.projects import (
+    get_profile_contacts,
+    get_profile_details,
+    update_profile,
+    upsert_profile_contacts,
+)
 from backend.schemas.projects import ProfilePatchRequest, ProfileResponse
 from backend.services.profile_avatar import (
     MAX_PROFILE_AVATAR_BYTES,
@@ -25,7 +30,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
 
-def _profile_response(profile: Mapping[str, Any], settings: Settings) -> ProfileResponse:
+def _profile_response(
+    profile: Mapping[str, Any],
+    settings: Settings,
+    contacts: Mapping[str, Any] | None,
+) -> ProfileResponse:
     try:
         avatar_url = create_profile_avatar_url(settings, profile.get("avatar_path"))
     except (ProfileAvatarError, MediaStorageConfigurationError):
@@ -34,7 +43,14 @@ def _profile_response(profile: Mapping[str, Any], settings: Settings) -> Profile
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't load your profile photo. Try again.",
         ) from None
-    return ProfileResponse(**profile, avatar_url=avatar_url)
+    return ProfileResponse(
+        **profile,
+        avatar_url=avatar_url,
+        contact_email=contacts.get("email") if contacts else None,
+        contact_phone=contacts.get("phone") if contacts else None,
+        contact_whatsapp=contacts.get("whatsapp") if contacts else None,
+        show_contact_on_profile=bool(contacts and contacts.get("show_on_profile")),
+    )
 
 
 def _profile_id(user: object) -> str:
@@ -56,6 +72,7 @@ def read_profile(
 ) -> ProfileResponse:
     try:
         profile = get_profile_details(client, _profile_id(user))
+        contacts = get_profile_contacts(client, _profile_id(user))
     except (APIError, httpx.HTTPError):
         logger.exception("Supabase profile details lookup failed")
         raise HTTPException(
@@ -67,7 +84,7 @@ def read_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your account profile has not been created.",
         )
-    return _profile_response(profile, settings)
+    return _profile_response(profile, settings, contacts)
 
 
 @router.patch("", response_model=ProfileResponse)
@@ -93,8 +110,29 @@ def save_profile(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Choose a profile username.",
         )
+    contact_fields = {
+        "contact_email": "email",
+        "contact_phone": "phone",
+        "contact_whatsapp": "whatsapp",
+        "show_contact_on_profile": "show_on_profile",
+    }
+    contact_values = {
+        contact_fields[key]: values.pop(key)
+        for key in list(values)
+        if key in contact_fields
+    }
+    profile_id = _profile_id(user)
     try:
-        profile = update_profile(client, _profile_id(user), values)
+        profile = (
+            update_profile(client, profile_id, values)
+            if values
+            else get_profile_details(client, profile_id)
+        )
+        contacts = (
+            upsert_profile_contacts(client, profile_id, contact_values)
+            if contact_values
+            else get_profile_contacts(client, profile_id)
+        )
     except APIError as error:
         if getattr(error, "code", None) == "23505" and "slug" in values:
             raise HTTPException(
@@ -117,7 +155,7 @@ def save_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Your account profile has not been created.",
         )
-    return _profile_response(profile, settings)
+    return _profile_response(profile, settings, contacts)
 
 
 @router.post("/avatar", response_model=ProfileResponse)
@@ -130,6 +168,7 @@ def upload_avatar(
     profile_id = _profile_id(user)
     try:
         current_profile = get_profile_details(client, profile_id)
+        contacts = get_profile_contacts(client, profile_id)
     except (APIError, httpx.HTTPError):
         logger.exception("Supabase profile lookup failed before avatar upload")
         raise HTTPException(
@@ -189,4 +228,4 @@ def upload_avatar(
     old_path = current_profile.get("avatar_path")
     if isinstance(old_path, str) and old_path != new_path:
         delete_profile_avatar(settings, old_path)
-    return _profile_response(updated_profile, settings)
+    return _profile_response(updated_profile, settings, contacts)

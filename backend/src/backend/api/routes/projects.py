@@ -21,9 +21,11 @@ from backend.repositories.projects import (
     get_media_asset,
     get_project,
     get_profile_details,
+    get_profile_contacts,
     get_project_by_slug,
     get_public_profile_by_slug,
     get_profiles_details,
+    get_profiles_contacts,
     insert_media_asset,
     insert_project,
     list_media_assets,
@@ -35,6 +37,7 @@ from backend.repositories.projects import (
 )
 from backend.schemas.projects import (
     MediaAssetResponse,
+    ContactOptionsResponse,
     MediaSignRequest,
     MediaSignResponse,
     ProjectCreateRequest,
@@ -79,12 +82,16 @@ def _rows_for_projects(
     updates: list[dict[str, Any]],
     media_assets: list[dict[str, Any]],
     profiles: list[dict[str, Any]],
+    contacts: list[dict[str, Any]],
     signed_urls: dict[str, str],
 ) -> list[ProjectResponse]:
     updates_by_project: dict[str, list[dict[str, Any]]] = {}
     media_by_project: dict[str, list[dict[str, Any]]] = {}
     media_by_update: dict[str, list[dict[str, Any]]] = {}
     profiles_by_id = {str(profile["id"]): profile for profile in profiles}
+    contacts_by_profile_id = {
+        str(contact["profile_id"]): contact for contact in contacts
+    }
 
     for update in updates:
         updates_by_project.setdefault(str(update["project_id"]), []).append(update)
@@ -99,6 +106,20 @@ def _rows_for_projects(
     for project in projects:
         project_id = str(project["id"])
         owner = profiles_by_id.get(str(project["owner_profile_id"]), {})
+        contact = contacts_by_profile_id.get(str(project["owner_profile_id"]))
+        contact_options = (
+            ContactOptionsResponse(
+                email=contact.get("email"),
+                phone=contact.get("phone"),
+                whatsapp=contact.get("whatsapp"),
+            )
+            if project.get("include_contact") and contact
+            else None
+        )
+        if contact_options and not any(
+            (contact_options.email, contact_options.phone, contact_options.whatsapp)
+        ):
+            contact_options = None
 
         def serialize_media(media: dict[str, Any]) -> MediaAssetResponse:
             path = str(media["storage_path"])
@@ -156,6 +177,8 @@ def _rows_for_projects(
                 location_label=project.get("location_label"),
                 stage=str(project["stage"]),
                 visibility=str(project["visibility"]),
+                include_contact=bool(project.get("include_contact", False)),
+                contact_options=contact_options,
                 publication_status=str(project["publication_status"]),
                 created_at=str(project["created_at"]),
                 published_at=project.get("published_at"),
@@ -182,6 +205,9 @@ def _serialize_projects(
     updates = [dict(row) for row in list_project_updates(client, project_ids)]
     assets = [dict(row) for row in list_media_assets(client, project_ids)]
     profiles = [dict(row) for row in get_profiles_details(client, profile_ids)]
+    contacts = [
+        dict(row) for row in get_profiles_contacts(client, profile_ids)
+    ]
 
     if public_only:
         updates = [
@@ -202,7 +228,7 @@ def _serialize_projects(
         ]
 
     signed_urls = create_signed_media_urls(settings, assets)
-    return _rows_for_projects(projects, updates, assets, profiles, signed_urls)
+    return _rows_for_projects(projects, updates, assets, profiles, contacts, signed_urls)
 
 
 def _map_database_failure(operation: str) -> NoReturn:
@@ -237,6 +263,20 @@ def read_public_profile(
             [dict(row) for row in project_rows],
             public_only=True,
         )
+        contact = get_profile_contacts(client, str(profile["id"]))
+        contact_options = (
+            ContactOptionsResponse(
+                email=contact.get("email"),
+                phone=contact.get("phone"),
+                whatsapp=contact.get("whatsapp"),
+            )
+            if contact and contact.get("show_on_profile")
+            else None
+        )
+        if contact_options and not any(
+            (contact_options.email, contact_options.phone, contact_options.whatsapp)
+        ):
+            contact_options = None
         return PublicProfileResponse(
             id=str(profile["id"]),
             slug=str(profile["slug"]),
@@ -246,6 +286,7 @@ def read_public_profile(
             city=profile.get("city"),
             bio=profile.get("bio"),
             avatar_url=create_profile_avatar_url(settings, profile.get("avatar_path")),
+            contact_options=contact_options,
             projects=projects,
         )
     except HTTPException:
@@ -360,7 +401,7 @@ def create_project_route(
             client,
             {
                 "id": str(project_id),
-                "slug": f"{slug_base}-{project_id.hex}",
+                "slug": f"{slug_base}-{project_id.hex[:8]}",
                 "owner_profile_id": _user_id(user),
                 "title": payload.title,
                 "description": payload.description,
@@ -368,6 +409,7 @@ def create_project_route(
                 "location_label": payload.location_label,
                 "stage": payload.stage,
                 "visibility": payload.visibility,
+                "include_contact": payload.include_contact,
                 "publication_status": "draft",
             },
         )
@@ -589,6 +631,17 @@ def sign_project_media_upload(
         signed_upload = client.storage.from_(PROJECT_MEDIA_BUCKET).create_signed_upload_url(
             storage_path,
         )
+        upload_token = signed_upload.get("token")
+        if (
+            not isinstance(upload_token, str)
+            or len(upload_token.split(".")) != 3
+            or any(not segment for segment in upload_token.split("."))
+        ):
+            logger.error("Supabase returned an invalid signed token for project media upload")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Supabase couldn't prepare a valid media upload token. Try again.",
+            )
         asset = insert_media_asset(
             client,
             {
@@ -620,7 +673,7 @@ def sign_project_media_upload(
         bucket_id=PROJECT_MEDIA_BUCKET,
         storage_path=storage_path,
         upload_endpoint=create_tus_endpoint(request.app.state.settings.supabase_url),
-        upload_token=str(signed_upload["token"]),
+        upload_token=upload_token,
         api_key=client.supabase_key,
     )
 

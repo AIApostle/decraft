@@ -26,7 +26,7 @@ The Python SDK is used for runtime Auth and PostgREST interactions. Database tab
 
 `FRONTEND_ORIGINS` is an exact comma-separated origin allowlist (scheme, host, and optional port). CORS handles browser preflights and response headers; origin middleware rejects requests and preflights that supply an unapproved `Origin`. Requests without an `Origin` remain available for health checks and non-browser clients, so this is not a replacement for authentication or authorization.
 
-The backend supports Python 3.11 and newer. Render is pinned to Python 3.11.2 in `.python-version`.
+The backend supports Python 3.11 and newer. Render is configured to use its latest available Python 3.11 patch release via `.python-version`; omitting the patch version avoids pinning to a patch runtime that Render cannot provision.
 
 ## Run
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#e8e2d6"/>
+  <path d="M0 590h1200M0 620h1200" stroke="#d5cebf" stroke-width="2"/>
+  <path d="M170 500h860v90H170z" fill="#d5cebf"/>
+  <path d="M230 500V290h410v210M670 500V360h300v140" fill="none" stroke="#b4ad9e" stroke-width="3"/>
+  <circle cx="940" cy="174" r="54" fill="#d5cebf"/>
+  <path d="M290 430c48-92 128-118 218-76v146H290zM716 444c50-72 122-92 224-55v111H716z" fill="#c9c2b4"/>
+  <text x="600" y="710" fill="#625d53" font-family="Georgia,serif" font-size="28" text-anchor="middle">Your project image</text>
+</svg>

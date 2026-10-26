@@ -1,0 +1,95 @@
+@font-face {
+  font-family: 'Bodoni Moda';
+  src: url('/fonts/bodoni-moda-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Public Sans';
+  src: url('/fonts/public-sans-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+:root {
+  --ground: #eee8db;
+  --paper: #f8f5ec;
+  --ink: #25231e;
+  --ink-soft: #5f5a50;
+  --moss: #3b4b3b;
+  --moss-deep: #29382b;
+  --rule: #d2cbbb;
+  --display: 'Bodoni Moda', Georgia, serif;
+  --sans: 'Public Sans', Arial, sans-serif;
+
+  font-family: var(--sans);
+  font-size: 16px;
+  font-synthesis: none;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--ground);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  font-optical-sizing: auto;
+  font-variant-numeric: proportional-nums;
+  scroll-behavior: smooth;
+  scrollbar-color: #777968 var(--ground);
+  scrollbar-width: thin;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--sans);
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 3px;
+}
+
+input:focus,
+textarea:focus {
+  caret-color: var(--moss);
+}
+
+::selection {
+  background: #cbd4c3;
+  color: var(--ink);
+}
+
+#root {
+  min-height: 100vh;
+}

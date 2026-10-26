@@ -1,0 +1,27 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "AI_Apostle", email = "achasaviourikhamate@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "email-validator>=2.3.0",
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.1",
+    "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
+    "supabase>=2.33.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+backend = "backend.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
